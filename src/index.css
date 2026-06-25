@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import '@xyflow/react/dist/style.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #f1f5f9;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* React Flow tweaks */
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  background: #64748b;
+  border: 1.5px solid #fff;
+}
+
+.react-flow__handle:hover {
+  background: #2563eb;
+}
+
+.react-flow__node {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Marching-ants animation for the striped push arrow */
+@keyframes vsm-march {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.vsm-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.vsm-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.vsm-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Nice node-resizer handles */
+.react-flow__resize-control.handle {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #2563eb;
+  border: 1px solid #fff;
+}
