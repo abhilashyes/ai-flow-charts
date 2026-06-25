@@ -30,6 +30,31 @@ export function formatTime(seconds: number, unit: TimeUnit, withUnit = true): st
   return withUnit ? `${str} ${short}` : str
 }
 
+/** Single-token prefix used to label time-axis columns (D, D+1, M-1, …). */
+export function unitLetter(unit: TimeUnit): string {
+  switch (unit) {
+    case 'seconds':
+      return 'S'
+    case 'minutes':
+      return 'Min'
+    case 'hours':
+      return 'H'
+    case 'days':
+      return 'D'
+    case 'weeks':
+      return 'W'
+    case 'months':
+      return 'M'
+  }
+}
+
+/** Column label for a relative time offset, e.g. (D, 0)→"D", (D, -1)→"D-1". */
+export function axisLabel(unit: TimeUnit, offset: number): string {
+  const letter = unitLetter(unit)
+  if (offset === 0) return letter
+  return offset > 0 ? `${letter}+${offset}` : `${letter}${offset}`
+}
+
 export function unitShort(unit: TimeUnit): string {
   switch (unit) {
     case 'seconds':

@@ -11,6 +11,7 @@ import {
 import { useStore } from '../store'
 import { nodeTypes } from '../nodes'
 import { edgeTypes, EdgeMarkers } from '../edges'
+import TimeAxis from './TimeAxis'
 import type { VsmNodeType } from '../types'
 
 // Grid size used for snapping and the background dots. Nodes snap to this grid
@@ -87,6 +88,7 @@ export default function Canvas() {
         <Controls showInteractive={false} />
         <MiniMap pannable zoomable nodeColor={miniMapColor} className="!bottom-2 !right-2" />
       </ReactFlow>
+      <TimeAxis />
     </div>
   )
 }
