@@ -1,14 +1,16 @@
-import { STENCILS, type StencilDef } from '../lib/nodeFactory'
+import { STENCILS, type StencilCategory, type StencilDef } from '../lib/nodeFactory'
 import type { VsmNodeType } from '../types'
 
-const CATEGORY_LABELS: Record<StencilDef['category'], string> = {
-  material: 'Material & Process',
-  entity: 'Entities & Logistics',
-  info: 'Information Flow',
+const CATEGORY_LABELS: Record<StencilCategory, string> = {
+  process: 'Flow & Process',
+  stores: 'Stores & Areas',
+  abnormal: 'Abnormal',
+  info: 'Information',
+  entity: 'Entities',
   improvement: 'Improvement & Notes',
 }
 
-const ORDER: StencilDef['category'][] = ['material', 'entity', 'improvement']
+const ORDER: StencilCategory[] = ['process', 'stores', 'abnormal', 'info', 'entity', 'improvement']
 
 export default function Palette() {
   return (
@@ -32,7 +34,8 @@ export default function Palette() {
         ))}
       </div>
       <div className="border-t border-slate-200 px-3 py-2 text-[10px] leading-snug text-slate-400">
-        Tip: connect nodes by dragging from a handle. Set the line type in the top bar.
+        Connect nodes by dragging from a handle. Pick Material (solid) or Information (dashed) flow in
+        the top bar.
       </div>
     </aside>
   )
@@ -76,19 +79,37 @@ function StencilGlyph({ type }: { type: VsmNodeType }) {
           />
         </div>
       )
-    case 'supermarket':
-      return <div className={`${base} border-2 border-r-0 border-slate-500`} />
-    case 'fifo':
-      return <div className={`${base} text-[8px] font-bold tracking-tight text-slate-500`}>FIFO</div>
-    case 'safetyStock':
-      return <div className={`${base} text-orange-500`}>▲▲</div>
+    case 'aTypeStore':
+    case 'aTypeStoreAbnormal':
+    case 'fixArea':
+      return (
+        <div className={`${base} flex-col gap-[2px] border border-slate-500 p-[3px]`}>
+          <div className="h-[2px] w-full bg-slate-400" />
+          <div className="h-[2px] w-full bg-slate-400" />
+          <div className="h-[2px] w-full bg-slate-400" />
+        </div>
+      )
+    case 'bTypeStore':
+      return (
+        <div className={`${base} border border-slate-500 text-[10px] text-slate-600`}>→</div>
+      )
+    case 'abnormalOverflow':
+      return <div className={`${base} text-red-600`}>▽</div>
+    case 'abnormalShortage':
+      return <div className={`${base} text-amber-600`}>▽</div>
+    case 'conveyance':
+      return <div className={base}>🚜</div>
+    case 'qualityCheck':
+      return <div className={`${base} text-sky-600`}>◆</div>
+    case 'paperInstruction':
+      return <div className={base}>📄</div>
+    case 'electronicInfo':
+      return <div className={`${base} text-blue-600`}>⚡</div>
     case 'customer':
     case 'supplier':
       return <div className={`${base} border-2 border-vsm-entityBorder bg-vsm-entity`} />
     case 'productionControl':
       return <div className={`${base} border-2 border-vsm-controlBorder bg-vsm-control`} />
-    case 'truck':
-      return <div className={base}>🚚</div>
     case 'kaizen':
       return <div className={`${base} text-pink-500`}>✸</div>
     case 'annotation':

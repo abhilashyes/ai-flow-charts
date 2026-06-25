@@ -78,7 +78,7 @@ export default function Canvas() {
         fitView
         minZoom={0.2}
         maxZoom={2.5}
-        defaultEdgeOptions={{ type: 'push' }}
+        defaultEdgeOptions={{ type: 'material' }}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={null}
         multiSelectionKeyCode="Shift"

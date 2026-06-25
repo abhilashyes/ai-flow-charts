@@ -21,15 +21,30 @@ export const TIME_UNITS: { value: TimeUnit; label: string; short: string }[] = [
 export type VsmNodeType =
   | 'process'
   | 'inventory'
-  | 'supermarket'
-  | 'fifo'
-  | 'safetyStock'
+  // stores & areas (count as inventory / NVA)
+  | 'aTypeStore'
+  | 'bTypeStore'
+  | 'aTypeStoreAbnormal'
+  | 'fixArea'
+  // abnormality markers (visual)
+  | 'abnormalOverflow'
+  | 'abnormalShortage'
+  // process-adjacent symbols (visual)
+  | 'conveyance'
+  | 'qualityCheck'
+  | 'paperInstruction'
+  | 'electronicInfo'
+  // entities & improvement
   | 'customer'
   | 'supplier'
   | 'productionControl'
-  | 'truck'
   | 'kaizen'
   | 'annotation'
+  // retained for back-compat with older saved maps (not offered in palette)
+  | 'supermarket'
+  | 'fifo'
+  | 'safetyStock'
+  | 'truck'
 
 export interface ProcessData {
   label: string
@@ -56,6 +71,19 @@ export interface SupermarketData {
   quantity: number
 }
 
+// Stores & areas count toward inventory / Non-Value-Added time, so they carry a
+// wait time like the Inventory triangle.
+export interface StoreData {
+  label: string
+  quantity: number
+  waitTime: number // seconds, NVA time
+}
+
+export interface AbnormalData {
+  label: string
+  note: string
+}
+
 export interface AnnotationData {
   label: string
   text: string
@@ -66,12 +94,14 @@ export type NodeData =
   | InventoryData
   | SimpleLabelData
   | SupermarketData
+  | StoreData
+  | AbnormalData
   | AnnotationData
 
 export type VsmNode = Node
 export type VsmEdge = Edge
 
-export type VsmEdgeType = 'push' | 'pull' | 'manualInfo' | 'electronicInfo' | 'default'
+export type VsmEdgeType = 'material' | 'information' | 'default'
 
 // ---------------------------------------------------------------------------
 // A single named "state" of the value stream (e.g. Current, Future).

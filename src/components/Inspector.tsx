@@ -65,6 +65,23 @@ function NodeFields({ node, unit }: { node: VsmNode; unit: TimeUnit }) {
         </>
       )}
 
+      {isStoreType(node.type) && (
+        <>
+          <SectionTitle>Store / Area</SectionTitle>
+          <NumberField label="Quantity" value={num(d.quantity)} onChange={(v) => set({ quantity: v })} />
+          <TimeField label="Wait Time" seconds={num(d.waitTime)} unit={unit} onChange={(s) => set({ waitTime: s })} />
+          <Hint>Counts as inventory — wait time contributes to Non-Value-Added time on the ladder.</Hint>
+        </>
+      )}
+
+      {(node.type === 'abnormalOverflow' || node.type === 'abnormalShortage') && (
+        <>
+          <SectionTitle>Abnormality</SectionTitle>
+          <TextAreaField label="Note" value={String(d.note ?? '')} onChange={(v) => set({ note: v })} />
+          <Hint>Visual flag only — does not affect the calculated metrics.</Hint>
+        </>
+      )}
+
       {(node.type === 'supermarket' || node.type === 'fifo' || node.type === 'safetyStock') && (
         <NumberField label="Quantity / Max" value={num(d.quantity)} onChange={(v) => set({ quantity: v })} />
       )}
@@ -84,6 +101,9 @@ function NodeFields({ node, unit }: { node: VsmNode; unit: TimeUnit }) {
 }
 
 const num = (v: unknown) => Number(v) || 0
+
+const STORE_TYPES = new Set(['aTypeStore', 'bTypeStore', 'aTypeStoreAbnormal', 'fixArea'])
+const isStoreType = (t?: string) => !!t && STORE_TYPES.has(t)
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (

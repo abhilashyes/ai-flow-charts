@@ -1,9 +1,24 @@
 import type { VsmNode, VsmStateMap, VsmMetrics, LadderStep, ProcessData, InventoryData } from '../types'
 
-/** Pull process nodes ordered left-to-right (the natural flow direction). */
+// Node types that represent stagnation / WIP and therefore contribute their
+// wait time to Non-Value-Added time: the Inventory triangle plus all stores
+// and areas from the Genba legend. They all carry a `waitTime` field.
+const INVENTORY_TYPES = new Set([
+  'inventory',
+  'aTypeStore',
+  'bTypeStore',
+  'aTypeStoreAbnormal',
+  'fixArea',
+])
+
+function isInventory(n: VsmNode): boolean {
+  return !!n.type && INVENTORY_TYPES.has(n.type)
+}
+
+/** Pull process + inventory/store nodes ordered left-to-right (flow direction). */
 export function orderedFlowNodes(nodes: VsmNode[]): VsmNode[] {
   return nodes
-    .filter((n) => n.type === 'process' || n.type === 'inventory')
+    .filter((n) => n.type === 'process' || isInventory(n))
     .slice()
     .sort((a, b) => a.position.x - b.position.x)
 }
@@ -30,6 +45,9 @@ export function buildLadder(state: VsmStateMap): LadderStep[] {
   })
 }
 
+const cycleSeconds = (n: VsmNode) => Number((n.data as unknown as ProcessData).cycleTime) || 0
+const waitSeconds = (n: VsmNode) => Number((n.data as unknown as InventoryData).waitTime) || 0
+
 /** Compute the aggregate VSM metrics for a state map. */
 export function computeMetrics(state: VsmStateMap): VsmMetrics {
   let va = 0
@@ -40,10 +58,10 @@ export function computeMetrics(state: VsmStateMap): VsmMetrics {
   for (const n of state.nodes) {
     if (n.type === 'process') {
       processCount++
-      va += Number((n.data as unknown as ProcessData).cycleTime) || 0
-    } else if (n.type === 'inventory') {
+      va += cycleSeconds(n)
+    } else if (isInventory(n)) {
       inventoryCount++
-      nva += Number((n.data as unknown as InventoryData).waitTime) || 0
+      nva += waitSeconds(n)
     }
   }
 

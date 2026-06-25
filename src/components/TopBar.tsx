@@ -7,10 +7,8 @@ import { buildSampleProject } from '../lib/sample'
 import { computeMetrics } from '../lib/metrics'
 
 const EDGE_OPTIONS: { value: VsmEdgeType; label: string }[] = [
-  { value: 'push', label: 'Push (striped)' },
-  { value: 'pull', label: 'Pull / withdrawal' },
-  { value: 'manualInfo', label: 'Manual info' },
-  { value: 'electronicInfo', label: 'Electronic info' },
+  { value: 'material', label: 'Material flow (solid)' },
+  { value: 'information', label: 'Information flow (dashed)' },
 ]
 
 export default function TopBar({

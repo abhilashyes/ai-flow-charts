@@ -86,7 +86,7 @@ export const useStore = create<VsmStore>()(
       project: initialProject,
       selectedNodeId: null,
       clipboard: null,
-      defaultEdgeType: 'push',
+      defaultEdgeType: 'material',
 
       activeState: () => {
         const p = get().project

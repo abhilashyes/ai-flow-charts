@@ -2,16 +2,21 @@ import { nanoid } from 'nanoid'
 import type { VsmStateMap, VsmProject } from '../types'
 import { toSeconds } from './units'
 
-// A compact but realistic demo value stream: Supplier → Inventory → Stamping →
-// Inventory → Assembly → Inventory → Shipping → Customer, with information flow
-// from Production Control.
+// A compact but realistic demo value stream using the Genba legend vocabulary:
+// Supplier → A Type Store → Stamping → Conveyance → B Type Store → Assembly →
+// Quality Check → Fix Area → Customer, with information flow from Production
+// Control. Stores/areas carry wait time and so drive the Non-Value-Added total.
 export function buildSampleCurrentState(): VsmStateMap {
   const supplier = mk('supplier', 40, 40, { label: 'Steel Supplier' })
-  const control = mk('productionControl', 430, 20, { label: 'Production Control' })
-  const customer = mk('customer', 860, 40, { label: 'Customer' })
+  const control = mk('productionControl', 450, 20, { label: 'Production Control' })
+  const customer = mk('customer', 950, 40, { label: 'Customer' })
 
-  const i1 = mk('inventory', 220, 250, { label: 'Coils', quantity: 5, waitTime: toSeconds(5, 'days') })
-  const p1 = mk('process', 320, 230, {
+  const coils = mk('aTypeStore', 40, 250, {
+    label: 'Coils',
+    quantity: 5,
+    waitTime: toSeconds(5, 'days'),
+  })
+  const stamping = mk('process', 210, 235, {
     label: 'Stamping',
     cycleTime: toSeconds(45, 'seconds'),
     changeover: toSeconds(60, 'minutes'),
@@ -20,8 +25,13 @@ export function buildSampleCurrentState(): VsmStateMap {
     batchSize: 200,
     shifts: 2,
   })
-  const i2 = mk('inventory', 470, 250, { label: 'WIP', quantity: 3, waitTime: toSeconds(3, 'days') })
-  const p2 = mk('process', 560, 230, {
+  const conveyance = mk('conveyance', 380, 250, { label: 'Forklift' })
+  const wip = mk('bTypeStore', 500, 250, {
+    label: 'WIP',
+    quantity: 3,
+    waitTime: toSeconds(3, 'days'),
+  })
+  const assembly = mk('process', 650, 235, {
     label: 'Assembly',
     cycleTime: toSeconds(62, 'seconds'),
     changeover: toSeconds(10, 'minutes'),
@@ -30,29 +40,27 @@ export function buildSampleCurrentState(): VsmStateMap {
     batchSize: 1,
     shifts: 2,
   })
-  const i3 = mk('inventory', 700, 250, { label: 'Finished', quantity: 4, waitTime: toSeconds(4, 'days') })
-  const p3 = mk('process', 780, 230, {
-    label: 'Shipping',
-    cycleTime: toSeconds(40, 'seconds'),
-    changeover: 0,
-    uptime: 100,
-    operators: 1,
-    batchSize: 1,
-    shifts: 2,
+  const quality = mk('qualityCheck', 820, 240, { label: 'Final QC' })
+  const finished = mk('fixArea', 950, 250, {
+    label: 'Shipping Lane',
+    quantity: 4,
+    waitTime: toSeconds(4, 'days'),
   })
 
-  const nodes = [supplier, control, customer, i1, p1, i2, p2, i3, p3]
+  const nodes = [supplier, control, customer, coils, stamping, conveyance, wip, assembly, quality, finished]
 
   const edges = [
-    pushEdge(supplier.id, i1.id),
-    pushEdge(i1.id, p1.id),
-    pushEdge(p1.id, i2.id),
-    pushEdge(i2.id, p2.id),
-    pushEdge(p2.id, i3.id),
-    pushEdge(i3.id, p3.id),
-    elecEdge(control.id, p1.id),
-    elecEdge(control.id, p2.id),
-    manualEdge(customer.id, control.id),
+    materialEdge(supplier.id, coils.id),
+    materialEdge(coils.id, stamping.id),
+    materialEdge(stamping.id, conveyance.id),
+    materialEdge(conveyance.id, wip.id),
+    materialEdge(wip.id, assembly.id),
+    materialEdge(assembly.id, quality.id),
+    materialEdge(quality.id, finished.id),
+    materialEdge(finished.id, customer.id),
+    infoEdge(control.id, stamping.id),
+    infoEdge(control.id, assembly.id),
+    infoEdge(customer.id, control.id),
   ]
 
   return { id: nanoid(8), name: 'Current State', nodes, edges }
@@ -62,14 +70,11 @@ function mk(type: string, x: number, y: number, data: Record<string, unknown>) {
   return { id: nanoid(8), type: type as VsmStateMap['nodes'][number]['type'], position: { x, y }, data }
 }
 
-function pushEdge(source: string, target: string) {
-  return { id: nanoid(8), source, target, type: 'push' }
+function materialEdge(source: string, target: string) {
+  return { id: nanoid(8), source, target, type: 'material' }
 }
-function elecEdge(source: string, target: string) {
-  return { id: nanoid(8), source, target, type: 'electronicInfo' }
-}
-function manualEdge(source: string, target: string) {
-  return { id: nanoid(8), source, target, type: 'manualInfo' }
+function infoEdge(source: string, target: string) {
+  return { id: nanoid(8), source, target, type: 'information' }
 }
 
 export function buildSampleProject(): VsmProject {
