@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
+import { Sparkles } from 'lucide-react'
+import { routeGraph, polylineToSegments } from '../../utils/elkLayout'
 
 // Cytoscape stylesheet. Rectangles = tasks (blue), diamonds = decisions
 // (orange). Process-flow edges are solid, information-flow edges dashed.
@@ -56,7 +58,7 @@ const cyStyle = [
       'text-background-opacity': 0.9,
       'text-background-padding': 3,
       'text-background-shape': 'roundrectangle',
-      // Orthogonal "elbow" routing (right-angle segments), not diagonal lines.
+      // Fallback routing for edges added incrementally (before Auto-arrange).
       'curve-style': 'taxi',
       'taxi-direction': 'downward',
       'taxi-turn': '50%',
@@ -64,6 +66,16 @@ const cyStyle = [
       width: 2,
       'target-arrow-shape': 'triangle',
       'arrow-scale': 0.9,
+    },
+  },
+  {
+    // Edges routed orthogonally by ELK: follow the computed bend points.
+    selector: 'edge.routed',
+    style: {
+      'curve-style': 'segments',
+      'edge-distances': 'node-position',
+      'segment-weights': 'data(segW)',
+      'segment-distances': 'data(segD)',
     },
   },
   {
@@ -124,17 +136,15 @@ function buildElements(processes, connectors, mode) {
 }
 
 /**
- * Reconcile the graph incrementally so that adding or deleting one element never
- * reshuffles the rest. Existing nodes keep their positions; only genuinely new
- * nodes get placed; the auto-layout runs only the first time a view is built.
- * Positions (including any the user drags) are remembered in `positions`.
+ * Incremental reconcile (used for plain add/delete): existing nodes keep their
+ * positions; only genuinely new nodes get placed; no auto-layout runs. New edges
+ * use the taxi fallback until the next Auto-arrange.
  */
 function syncGraph(cy, nodes, edges, positions) {
   const wasEmpty = cy.nodes().length === 0
   const wantNodes = new Set(nodes.map((n) => n.data.id))
   const wantEdges = new Set(edges.map((e) => e.data.id))
 
-  // Remove elements that are gone (keep their stored positions for later return).
   cy.nodes().forEach((n) => {
     if (!wantNodes.has(n.id())) n.remove()
   })
@@ -142,7 +152,6 @@ function syncGraph(cy, nodes, edges, positions) {
     if (!wantEdges.has(e.id())) e.remove()
   })
 
-  // Refresh data (labels/type) on elements that still exist — no movement.
   nodes.forEach((n) => {
     const el = cy.getElementById(n.data.id)
     if (el.nonempty()) {
@@ -161,56 +170,116 @@ function syncGraph(cy, nodes, edges, positions) {
   const newNodes = nodes.filter((n) => cy.getElementById(n.data.id).empty())
   const newEdges = edges.filter((e) => cy.getElementById(e.data.id).empty())
 
-  // Only auto-layout when building a view from scratch and we have no remembered
-  // positions for the incoming nodes.
-  const needLayout = wasEmpty && newNodes.some((n) => !positions.has(n.data.id))
+  const pts = cy.nodes().map((n) => n.position())
+  const maxX = pts.length ? Math.max(...pts.map((p) => p.x)) : 0
+  const minY = pts.length ? Math.min(...pts.map((p) => p.y)) : 0
+  let offset = 0
+  const toAdd = newNodes.map((n) => {
+    let pos = positions.get(n.data.id)
+    if (!pos) {
+      pos = { x: maxX + 210, y: minY + offset * 96 }
+      offset++
+      positions.set(n.data.id, { ...pos })
+    }
+    return { group: 'nodes', data: n.data, position: { ...pos } }
+  })
+  if (toAdd.length) cy.add(toAdd)
+  if (newEdges.length) cy.add(newEdges.map((e) => ({ group: 'edges', data: e.data })))
 
-  if (needLayout) {
-    cy.add(newNodes.map((n) => (positions.has(n.data.id) ? { ...n, position: { ...positions.get(n.data.id) } } : n)))
-    cy.add(newEdges)
-    cy.layout({ name: 'breadthfirst', directed: true, spacingFactor: 1.15, padding: 24, animate: false }).run()
-    cy.nodes().forEach((n) => positions.set(n.id(), { ...n.position() }))
-  } else {
-    // Incremental add: existing nodes untouched; place each new node at its
-    // remembered spot, or just off to the side so nothing else moves.
-    const pts = cy.nodes().map((n) => n.position())
-    const maxX = pts.length ? Math.max(...pts.map((p) => p.x)) : 0
-    const minY = pts.length ? Math.min(...pts.map((p) => p.y)) : 0
-    let offset = 0
-    const toAdd = newNodes.map((n) => {
-      let pos = positions.get(n.data.id)
-      if (!pos) {
-        pos = { x: maxX + 210, y: minY + offset * 96 }
-        offset++
-        positions.set(n.data.id, { ...pos })
-      }
-      return { ...n, position: { ...pos } }
-    })
-    if (toAdd.length) cy.add(toAdd)
-    if (newEdges.length) cy.add(newEdges)
-  }
+  return wasEmpty
+}
 
-  // Fit only when the view first becomes populated (never on in-place edits).
-  if (wasEmpty && cy.nodes().length > 0) {
-    requestAnimationFrame(() => {
-      if (!cy.destroyed()) cy.fit(undefined, 36)
-    })
+/** Build an edge element, applying ELK's orthogonal geometry when available. */
+function routedEdge(edge, geom, positions) {
+  const poly = geom.get(edge.data.id)
+  const s = positions.get(edge.data.source)
+  const t = positions.get(edge.data.target)
+  if (poly && s && t) {
+    const seg = polylineToSegments(poly, s, t)
+    if (seg) {
+      return { group: 'edges', data: { ...edge.data, segW: seg.segW, segD: seg.segD }, classes: 'routed' }
+    }
   }
+  return { group: 'edges', data: edge.data }
 }
 
 export default function InteractiveDiagram({ processes, connectors, mode, selected, onSelect }) {
   const containerRef = useRef(null)
   const cyRef = useRef(null)
-  const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
   const positionsRef = useRef(new Map()) // node id -> { x, y }
   const fittedRef = useRef(false)
+  const runIdRef = useRef(0)
+  const [busy, setBusy] = useState(false)
+
+  const onSelectRef = useRef(onSelect)
+  onSelectRef.current = onSelect
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
 
   const { nodes, edges } = useMemo(
     () => buildElements(processes, connectors, mode),
     [processes, connectors, mode],
   )
+  const dataRef = useRef({ processes, connectors, nodes, edges })
+  dataRef.current = { processes, connectors, nodes, edges }
   const dataKey = useMemo(() => JSON.stringify({ nodes, edges }), [nodes, edges])
+
+  const applySelection = (cy) => {
+    cy.elements().removeClass('sel')
+    const sel = selectedRef.current
+    if (sel?.kind === 'process') cy.getElementById(String(sel.id)).addClass('sel')
+    if (sel?.kind === 'connector') cy.getElementById(`e${sel.id}`).addClass('sel')
+  }
+
+  // Reconcile the graph. `force` re-runs ELK routing over the whole view.
+  const rebuild = async (force) => {
+    const cy = cyRef.current
+    if (!cy || cy.destroyed()) return
+    const { processes: procs, connectors: conns, nodes: ns, edges: es } = dataRef.current
+    const myRun = ++runIdRef.current
+
+    if (force) {
+      ns.forEach((n) => positionsRef.current.delete(n.data.id))
+      cy.elements().remove()
+    }
+
+    // A "fresh view" is the first render or a full node-set swap (e.g. switching
+    // Standard ↔ Ideal): nothing carries over, so run ELK routing + fit. Plain
+    // add/delete keeps existing nodes and takes the incremental path.
+    const wantNodeIds = new Set(ns.map((n) => n.data.id))
+    const carriedOver = cy.nodes().filter((n) => wantNodeIds.has(n.id())).length
+    const freshView = carriedOver === 0
+    const needRoute = ns.length > 0 && (force || freshView)
+
+    if (needRoute) {
+      if (force) setBusy(true)
+      const { positions, edges: geom } = await routeGraph(procs, conns)
+      if (myRun !== runIdRef.current || cy.destroyed()) {
+        if (force) setBusy(false)
+        return
+      }
+      cy.elements().remove()
+      ns.forEach((n) => {
+        const pos = positions.get(n.data.id) || positionsRef.current.get(n.data.id) || { x: 0, y: 0 }
+        positionsRef.current.set(n.data.id, { ...pos })
+        cy.add({ group: 'nodes', data: n.data, position: { ...pos } })
+      })
+      es.forEach((e) => cy.add(routedEdge(e, geom, positionsRef.current)))
+      applySelection(cy)
+      requestAnimationFrame(() => {
+        if (!cy.destroyed()) {
+          cy.fit(undefined, 36)
+          fittedRef.current = true
+        }
+      })
+      setBusy(false)
+    } else {
+      // Incremental add/delete: existing nodes stay put, no re-fit.
+      syncGraph(cy, ns, es, positionsRef.current)
+      applySelection(cy)
+      if (cy.nodes().length > 0) fittedRef.current = true
+    }
+  }
 
   // Init once.
   useEffect(() => {
@@ -229,14 +298,11 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     cy.on('tap', (evt) => {
       if (evt.target === cy) onSelectRef.current?.(null)
     })
-    // Remember any manual drag so it survives future updates.
     cy.on('dragfree', 'node', (evt) => positionsRef.current.set(evt.target.id(), { ...evt.target.position() }))
 
     const ro = new ResizeObserver(() => {
       if (cy.destroyed()) return
       cy.resize()
-      // Only auto-fit once (first time the container has a real size); after that
-      // keep the user's pan/zoom stable.
       if (!fittedRef.current && cy.nodes().length > 0) {
         cy.fit(undefined, 36)
         fittedRef.current = true
@@ -251,26 +317,33 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     }
   }, [])
 
-  // Reconcile the graph incrementally whenever the data changes.
+  // Reconcile whenever the data changes.
   useEffect(() => {
-    const cy = cyRef.current
-    if (!cy) return
-    syncGraph(cy, nodes, edges, positionsRef.current)
-    if (cy.nodes().length > 0) fittedRef.current = true
+    rebuild(false)
   }, [dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reflect external selection as a highlight.
   useEffect(() => {
     const cy = cyRef.current
-    if (!cy) return
-    cy.elements().removeClass('sel')
-    if (selected?.kind === 'process') cy.getElementById(String(selected.id)).addClass('sel')
-    if (selected?.kind === 'connector') cy.getElementById(`e${selected.id}`).addClass('sel')
-  }, [selected, dataKey])
+    if (cy && !cy.destroyed()) applySelection(cy)
+  }, [selected, dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+
+      {processes.length > 1 && (
+        <button
+          onClick={() => rebuild(true)}
+          disabled={busy}
+          title="Re-route all connectors orthogonally around the shapes"
+          className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+        >
+          <Sparkles size={14} className={busy ? 'animate-pulse' : ''} />
+          {busy ? 'Arranging…' : 'Auto-arrange'}
+        </button>
+      )}
+
       {processes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="text-[13px] text-slate-400">No processes in this view yet.</p>
