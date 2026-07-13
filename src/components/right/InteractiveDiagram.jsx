@@ -7,18 +7,18 @@ const cyStyle = [
   {
     selector: 'node',
     style: {
+      // Label sits inside the shape, centered.
       label: 'data(label)',
       'text-wrap': 'wrap',
-      'text-max-width': '120px',
-      'text-valign': 'bottom',
+      'text-valign': 'center',
       'text-halign': 'center',
-      'text-margin-y': 6,
       'font-size': 9,
       'font-weight': 600,
-      color: '#334155',
+      'line-height': 1.15,
+      color: '#1e293b',
       'border-width': 2,
       'text-outline-color': '#ffffff',
-      'text-outline-width': 2,
+      'text-outline-width': 1,
     },
   },
   {
@@ -27,8 +27,9 @@ const cyStyle = [
       shape: 'round-rectangle',
       'background-color': '#dbeafe',
       'border-color': '#3b82f6',
-      width: 100,
-      height: 60,
+      width: 136,
+      height: 68,
+      'text-max-width': '120px',
     },
   },
   {
@@ -37,8 +38,9 @@ const cyStyle = [
       shape: 'diamond',
       'background-color': '#ffedd5',
       'border-color': '#f97316',
-      width: 74,
-      height: 74,
+      width: 108,
+      height: 108,
+      'text-max-width': '66px',
     },
   },
   {
