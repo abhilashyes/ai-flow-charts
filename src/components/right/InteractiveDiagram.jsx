@@ -54,7 +54,11 @@ const cyStyle = [
       'text-background-opacity': 0.9,
       'text-background-padding': 3,
       'text-background-shape': 'roundrectangle',
-      'curve-style': 'bezier',
+      // Orthogonal "elbow" routing (right-angle segments), not diagonal lines.
+      'curve-style': 'taxi',
+      'taxi-direction': 'downward',
+      'taxi-turn': '50%',
+      'taxi-turn-min-distance': 8,
       width: 2,
       'target-arrow-shape': 'triangle',
       'arrow-scale': 0.9,
