@@ -18,8 +18,10 @@ function makeInitial() {
 
 /**
  * Central state for the value chain: processes, connectors, current mode,
- * selection, toasts, and an undo/redo history stack. Mutations go through
- * `commit`, which snapshots the previous chain for undo.
+ * selection, toasts, and an undo/redo history stack. Mutators compute the next
+ * chain from the current one and pass it to `commit`, which snapshots the
+ * previous chain for undo. Effects (toasts, history) are kept out of the state
+ * updater so nothing double-fires under React StrictMode.
  */
 export function useValueChain() {
   const [chain, setChain] = useState(makeInitial)
@@ -29,9 +31,8 @@ export function useValueChain() {
 
   const past = useRef([])
   const future = useRef([])
-  const [historyVersion, setHistoryVersion] = useState(0) // forces re-render of undo/redo enabled state
-
-  const bumpHistory = () => setHistoryVersion((v) => v + 1)
+  const [, bump] = useState(0)
+  const rerender = () => bump((v) => v + 1)
 
   const toast = useCallback((message, kind = 'success') => {
     const id = crypto.randomUUID()
@@ -41,119 +42,104 @@ export function useValueChain() {
 
   const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), [])
 
-  // Apply an updater to the chain, snapshotting the previous state for undo.
-  const commit = useCallback((updater) => {
-    setChain((prev) => {
-      past.current = [...past.current, prev].slice(-HISTORY_LIMIT)
-      future.current = []
-      bumpHistory()
-      const next = updater(prev)
-      return { ...next, updatedAt: new Date().toISOString() }
-    })
-  }, [])
-
   // The mode used for editing (standard/ideal); comparison falls back to standard.
   const editMode = currentMode === MODES.IDEAL ? MODES.IDEAL : MODES.STANDARD
 
+  // Snapshot the current chain for undo, then set the new one.
+  const commit = useCallback(
+    (nextChain) => {
+      past.current = [...past.current, chain].slice(-HISTORY_LIMIT)
+      future.current = []
+      rerender()
+      setChain({ ...nextChain, updatedAt: new Date().toISOString() })
+    },
+    [chain],
+  )
+
   const addProcess = useCallback(
     (values) => {
-      let created
-      commit((prev) => {
-        const refNum = generateRefNum('P', prev.processes)
-        created = {
-          id: nextId(prev.processes),
-          refNum,
-          name: values.name.trim(),
-          type: values.type,
-          stdTime: Number(values.stdTime),
-          idealTime: Number(values.idealTime),
-          stdRes: Number(values.stdRes),
-          idealRes: Number(values.idealRes),
-          mode: editMode,
-        }
-        return { ...prev, processes: [...prev.processes, created] }
-      })
-      // read the refNum from the just-created object after commit resolves
-      setTimeout(() => created && toast(`${created.refNum} added!`), 0)
+      const created = {
+        id: nextId(chain.processes),
+        refNum: generateRefNum('P', chain.processes),
+        name: values.name.trim(),
+        type: values.type,
+        stdTime: Number(values.stdTime),
+        idealTime: Number(values.idealTime),
+        stdRes: Number(values.stdRes),
+        idealRes: Number(values.idealRes),
+        mode: editMode,
+      }
+      commit({ ...chain, processes: [...chain.processes, created] })
+      toast(`${created.refNum} added!`)
     },
-    [commit, editMode, toast],
+    [chain, editMode, commit, toast],
   )
 
   const deleteProcess = useCallback(
     (id) => {
-      commit((prev) => {
-        const proc = prev.processes.find((p) => p.id === id)
-        const processes = prev.processes.filter((p) => p.id !== id)
+      const proc = chain.processes.find((p) => p.id === id)
+      commit({
+        ...chain,
+        processes: chain.processes.filter((p) => p.id !== id),
         // cascade: drop connectors that reference the removed process
-        const connectors = prev.connectors.filter((c) => c.source !== id && c.target !== id)
-        setTimeout(() => toast(`${proc?.refNum ?? 'Process'} deleted`, 'info'), 0)
-        return { ...prev, processes, connectors }
+        connectors: chain.connectors.filter((c) => c.source !== id && c.target !== id),
       })
+      toast(`${proc?.refNum ?? 'Process'} deleted`, 'info')
       setSelected((s) => (s?.kind === 'process' && s.id === id ? null : s))
     },
-    [commit, toast],
+    [chain, commit, toast],
   )
 
   const addConnector = useCallback(
     (values) => {
-      let created
-      commit((prev) => {
-        const refNum = generateRefNum('C', prev.connectors)
-        created = {
-          id: nextId(prev.connectors),
-          refNum,
-          source: Number(values.source),
-          target: Number(values.target),
-          type: values.type,
-          modeOfConveyance: values.modeOfConveyance,
-          stdTime: Number(values.stdTime),
-          idealTime: Number(values.idealTime),
-          stdRes: Number(values.stdRes),
-          idealRes: Number(values.idealRes),
-          mode: editMode,
-        }
-        return { ...prev, connectors: [...prev.connectors, created] }
-      })
-      setTimeout(() => created && toast(`${created.refNum} added!`), 0)
+      const created = {
+        id: nextId(chain.connectors),
+        refNum: generateRefNum('C', chain.connectors),
+        source: Number(values.source),
+        target: Number(values.target),
+        type: values.type,
+        modeOfConveyance: values.modeOfConveyance,
+        stdTime: Number(values.stdTime),
+        idealTime: Number(values.idealTime),
+        stdRes: Number(values.stdRes),
+        idealRes: Number(values.idealRes),
+        mode: editMode,
+      }
+      commit({ ...chain, connectors: [...chain.connectors, created] })
+      toast(`${created.refNum} added!`)
     },
-    [commit, editMode, toast],
+    [chain, editMode, commit, toast],
   )
 
   const deleteConnector = useCallback(
     (id) => {
-      commit((prev) => {
-        const conn = prev.connectors.find((c) => c.id === id)
-        setTimeout(() => toast(`${conn?.refNum ?? 'Connector'} deleted`, 'info'), 0)
-        return { ...prev, connectors: prev.connectors.filter((c) => c.id !== id) }
-      })
+      const conn = chain.connectors.find((c) => c.id === id)
+      commit({ ...chain, connectors: chain.connectors.filter((c) => c.id !== id) })
+      toast(`${conn?.refNum ?? 'Connector'} deleted`, 'info')
       setSelected((s) => (s?.kind === 'connector' && s.id === id ? null : s))
     },
-    [commit, toast],
+    [chain, commit, toast],
   )
 
   const undo = useCallback(() => {
     if (past.current.length === 0) return
-    setChain((prev) => {
-      const previous = past.current[past.current.length - 1]
-      past.current = past.current.slice(0, -1)
-      future.current = [prev, ...future.current].slice(0, HISTORY_LIMIT)
-      bumpHistory()
-      return previous
-    })
+    const previous = past.current[past.current.length - 1]
+    past.current = past.current.slice(0, -1)
+    future.current = [chain, ...future.current].slice(0, HISTORY_LIMIT)
+    rerender()
+    setChain(previous)
     toast('Undo', 'info')
-  }, [toast])
+  }, [chain, toast])
 
   const redo = useCallback(() => {
     if (future.current.length === 0) return
-    setChain((prev) => {
-      const nextState = future.current[0]
-      future.current = future.current.slice(1)
-      past.current = [...past.current, prev].slice(-HISTORY_LIMIT)
-      bumpHistory()
-      return nextState
-    })
+    const nextState = future.current[0]
+    future.current = future.current.slice(1)
+    past.current = [...past.current, chain].slice(-HISTORY_LIMIT)
+    rerender()
+    setChain(nextState)
     toast('Redo', 'info')
-  }, [toast])
+  }, [chain, toast])
 
   return {
     chain,
@@ -173,6 +159,5 @@ export function useValueChain() {
     redo,
     canUndo: past.current.length > 0,
     canRedo: future.current.length > 0,
-    historyVersion,
   }
 }

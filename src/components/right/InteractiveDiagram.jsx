@@ -120,7 +120,82 @@ function buildElements(processes, connectors, mode) {
       },
     }))
 
-  return [...nodes, ...edges]
+  return { nodes, edges }
+}
+
+/**
+ * Reconcile the graph incrementally so that adding or deleting one element never
+ * reshuffles the rest. Existing nodes keep their positions; only genuinely new
+ * nodes get placed; the auto-layout runs only the first time a view is built.
+ * Positions (including any the user drags) are remembered in `positions`.
+ */
+function syncGraph(cy, nodes, edges, positions) {
+  const wasEmpty = cy.nodes().length === 0
+  const wantNodes = new Set(nodes.map((n) => n.data.id))
+  const wantEdges = new Set(edges.map((e) => e.data.id))
+
+  // Remove elements that are gone (keep their stored positions for later return).
+  cy.nodes().forEach((n) => {
+    if (!wantNodes.has(n.id())) n.remove()
+  })
+  cy.edges().forEach((e) => {
+    if (!wantEdges.has(e.id())) e.remove()
+  })
+
+  // Refresh data (labels/type) on elements that still exist — no movement.
+  nodes.forEach((n) => {
+    const el = cy.getElementById(n.data.id)
+    if (el.nonempty()) {
+      el.data('label', n.data.label)
+      el.data('shape', n.data.shape)
+    }
+  })
+  edges.forEach((e) => {
+    const el = cy.getElementById(e.data.id)
+    if (el.nonempty()) {
+      el.data('label', e.data.label)
+      el.data('etype', e.data.etype)
+    }
+  })
+
+  const newNodes = nodes.filter((n) => cy.getElementById(n.data.id).empty())
+  const newEdges = edges.filter((e) => cy.getElementById(e.data.id).empty())
+
+  // Only auto-layout when building a view from scratch and we have no remembered
+  // positions for the incoming nodes.
+  const needLayout = wasEmpty && newNodes.some((n) => !positions.has(n.data.id))
+
+  if (needLayout) {
+    cy.add(newNodes.map((n) => (positions.has(n.data.id) ? { ...n, position: { ...positions.get(n.data.id) } } : n)))
+    cy.add(newEdges)
+    cy.layout({ name: 'breadthfirst', directed: true, spacingFactor: 1.15, padding: 24, animate: false }).run()
+    cy.nodes().forEach((n) => positions.set(n.id(), { ...n.position() }))
+  } else {
+    // Incremental add: existing nodes untouched; place each new node at its
+    // remembered spot, or just off to the side so nothing else moves.
+    const pts = cy.nodes().map((n) => n.position())
+    const maxX = pts.length ? Math.max(...pts.map((p) => p.x)) : 0
+    const minY = pts.length ? Math.min(...pts.map((p) => p.y)) : 0
+    let offset = 0
+    const toAdd = newNodes.map((n) => {
+      let pos = positions.get(n.data.id)
+      if (!pos) {
+        pos = { x: maxX + 210, y: minY + offset * 96 }
+        offset++
+        positions.set(n.data.id, { ...pos })
+      }
+      return { ...n, position: { ...pos } }
+    })
+    if (toAdd.length) cy.add(toAdd)
+    if (newEdges.length) cy.add(newEdges)
+  }
+
+  // Fit only when the view first becomes populated (never on in-place edits).
+  if (wasEmpty && cy.nodes().length > 0) {
+    requestAnimationFrame(() => {
+      if (!cy.destroyed()) cy.fit(undefined, 36)
+    })
+  }
 }
 
 export default function InteractiveDiagram({ processes, connectors, mode, selected, onSelect }) {
@@ -128,9 +203,14 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
   const cyRef = useRef(null)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
+  const positionsRef = useRef(new Map()) // node id -> { x, y }
+  const fittedRef = useRef(false)
 
-  const elements = useMemo(() => buildElements(processes, connectors, mode), [processes, connectors, mode])
-  const elementsKey = useMemo(() => JSON.stringify(elements), [elements])
+  const { nodes, edges } = useMemo(
+    () => buildElements(processes, connectors, mode),
+    [processes, connectors, mode],
+  )
+  const dataKey = useMemo(() => JSON.stringify({ nodes, edges }), [nodes, edges])
 
   // Init once.
   useEffect(() => {
@@ -149,10 +229,18 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     cy.on('tap', (evt) => {
       if (evt.target === cy) onSelectRef.current?.(null)
     })
+    // Remember any manual drag so it survives future updates.
+    cy.on('dragfree', 'node', (evt) => positionsRef.current.set(evt.target.id(), { ...evt.target.position() }))
 
     const ro = new ResizeObserver(() => {
+      if (cy.destroyed()) return
       cy.resize()
-      cy.fit(undefined, 30)
+      // Only auto-fit once (first time the container has a real size); after that
+      // keep the user's pan/zoom stable.
+      if (!fittedRef.current && cy.nodes().length > 0) {
+        cy.fit(undefined, 36)
+        fittedRef.current = true
+      }
     })
     ro.observe(containerRef.current)
 
@@ -163,23 +251,13 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     }
   }, [])
 
-  // Rebuild elements + layout whenever the data changes.
+  // Reconcile the graph incrementally whenever the data changes.
   useEffect(() => {
     const cy = cyRef.current
     if (!cy) return
-    cy.elements().remove()
-    cy.add(elements)
-    if (elements.length > 0) {
-      cy.layout({
-        name: 'breadthfirst',
-        directed: true,
-        spacingFactor: 1.15,
-        padding: 24,
-        animate: false,
-      }).run()
-      cy.fit(undefined, 30)
-    }
-  }, [elementsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    syncGraph(cy, nodes, edges, positionsRef.current)
+    if (cy.nodes().length > 0) fittedRef.current = true
+  }, [dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reflect external selection as a highlight.
   useEffect(() => {
@@ -188,7 +266,7 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     cy.elements().removeClass('sel')
     if (selected?.kind === 'process') cy.getElementById(String(selected.id)).addClass('sel')
     if (selected?.kind === 'connector') cy.getElementById(`e${selected.id}`).addClass('sel')
-  }, [selected, elementsKey])
+  }, [selected, dataKey])
 
   return (
     <div className="relative h-full w-full">
