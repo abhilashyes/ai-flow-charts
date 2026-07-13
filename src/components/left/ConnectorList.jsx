@@ -1,0 +1,68 @@
+import { Trash2, ArrowRight, Clock } from 'lucide-react'
+
+export default function ConnectorList({ connectors, processMap, selected, onSelect, onDelete }) {
+  if (connectors.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[12px] text-slate-400">
+        No connectors yet. Click “Add Connector” to link two processes.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {connectors.map((c) => {
+        const isSel = selected?.kind === 'connector' && selected.id === c.id
+        const src = processMap.get(c.source)
+        const tgt = processMap.get(c.target)
+        const isInfo = c.type === 'information-flow'
+        return (
+          <div
+            key={c.id}
+            onClick={() => onSelect({ kind: 'connector', id: c.id })}
+            className={`group cursor-pointer rounded-lg border p-2.5 transition ${
+              isSel ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">{c.refNum}</span>
+              <span
+                title={isInfo ? 'Information flow' : 'Process flow'}
+                className={`inline-block h-0 w-5 border-t-2 ${
+                  isInfo ? 'border-dashed border-violet-500' : 'border-solid border-slate-500'
+                }`}
+              />
+              <span className="flex-1 truncate text-[12px] font-medium text-slate-600">
+                {src?.refNum ?? '?'} <ArrowRight size={11} className="inline" /> {tgt?.refNum ?? '?'}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(c.id)
+                }}
+                title="Delete connector"
+                className="rounded p-1 text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+            <div className="mt-1.5 flex items-center gap-3 pl-1 text-[11px] text-slate-500">
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                  isInfo ? 'bg-violet-50 text-violet-600' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {c.modeOfConveyance}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock size={11} /> {c.stdTime}m
+                <span className="text-slate-300">/</span>
+                <span className="text-emerald-600">{c.idealTime}m</span>
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
