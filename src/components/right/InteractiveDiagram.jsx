@@ -76,22 +76,32 @@ const cyStyle = [
     selector: 'edge[etype = "information-flow"]',
     style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6', 'line-style': 'dashed' },
   },
-  // Per-connector chosen exit side of the source shape (still right-angled).
+  // Per-connector chosen exit side of the source shape — all strictly 90°.
+  // Left/right just steer the taxi direction; top/bottom draw an explicit
+  // U-shaped detour (down/up, across, up/down) via right-angle segments.
+  { selector: 'edge.side-left', style: { 'taxi-direction': 'leftward' } },
+  { selector: 'edge.side-right', style: { 'taxi-direction': 'rightward' } },
   {
-    selector: 'edge.side-top',
-    style: { 'taxi-direction': 'vertical', 'source-endpoint': '0% -50%' },
+    selector: 'edge.uv-top',
+    style: {
+      'curve-style': 'segments',
+      'edge-distances': 'endpoints',
+      'segment-weights': 'data(segW)',
+      'segment-distances': 'data(segD)',
+      'source-endpoint': '0% -50%',
+      'target-endpoint': '0% -50%',
+    },
   },
   {
-    selector: 'edge.side-bottom',
-    style: { 'taxi-direction': 'vertical', 'source-endpoint': '0% 50%' },
-  },
-  {
-    selector: 'edge.side-left',
-    style: { 'taxi-direction': 'horizontal', 'source-endpoint': '-50% 0%' },
-  },
-  {
-    selector: 'edge.side-right',
-    style: { 'taxi-direction': 'horizontal', 'source-endpoint': '50% 0%' },
+    selector: 'edge.uv-bottom',
+    style: {
+      'curve-style': 'segments',
+      'edge-distances': 'endpoints',
+      'segment-weights': 'data(segW)',
+      'segment-distances': 'data(segD)',
+      'source-endpoint': '0% 50%',
+      'target-endpoint': '0% 50%',
+    },
   },
   {
     selector: '.sel',
@@ -135,11 +145,66 @@ function buildElements(processes, connectors, mode) {
   return { nodes, edges }
 }
 
-const sideClass = (srcSide) => (srcSide && srcSide !== 'auto' ? `side-${srcSide}` : undefined)
+const HUMP = 64 // how far a top/bottom detour reaches past the shapes (px)
+const ROUTING_CLASSES = 'side-left side-right uv-top uv-bottom'
 
-const edgeEl = (edge) => {
-  const cls = sideClass(edge.data.srcSide)
-  return cls ? { group: 'edges', data: edge.data, classes: cls } : { group: 'edges', data: edge.data }
+function box(id, positions, shapes) {
+  const p = positions?.get(id)
+  if (!p) return null
+  const diamond = shapes.get(id) === 'diamond'
+  return { x: p.x, y: p.y, w: diamond ? 108 : 136, h: diamond ? 108 : 68 }
+}
+
+// Express two U-detour waypoints as Cytoscape segment weights/distances,
+// measured along the (bottom/top) endpoint-to-endpoint line.
+function uvSegments(edge, positions, shapes, side) {
+  const s = box(edge.data.source, positions, shapes)
+  const t = box(edge.data.target, positions, shapes)
+  if (!s || !t) return null
+  const dir = side === 'bottom' ? 1 : -1
+  const baseY =
+    side === 'bottom' ? Math.max(s.y + s.h / 2, t.y + t.h / 2) : Math.min(s.y - s.h / 2, t.y - t.h / 2)
+  const humpY = baseY + dir * HUMP
+  const S = { x: s.x, y: s.y + (dir * s.h) / 2 } // source border (bottom/top centre)
+  const T = { x: t.x, y: t.y + (dir * t.h) / 2 } // target border (bottom/top centre)
+  const wps = [
+    { x: s.x, y: humpY },
+    { x: t.x, y: humpY },
+  ]
+  const dx = T.x - S.x
+  const dy = T.y - S.y
+  const len2 = dx * dx + dy * dy || 1
+  const len = Math.sqrt(len2)
+  const w = []
+  const d = []
+  for (const p of wps) {
+    const tt = ((p.x - S.x) * dx + (p.y - S.y) * dy) / len2
+    // Cytoscape's positive segment-distance points to the opposite side from the
+    // raw cross-product, so negate to keep the hump on the chosen side.
+    const dd = ((p.y - S.y) * dx - (p.x - S.x) * dy) / len
+    w.push(Math.min(0.999, Math.max(0.001, tt)).toFixed(4))
+    d.push(dd.toFixed(2))
+  }
+  return { segW: w.join(' '), segD: d.join(' ') }
+}
+
+// Resolve an edge's routing class (+ any segment data) from its chosen side.
+function computeEdge(edge, positions, shapes) {
+  const side = edge.data.srcSide
+  if (side === 'top' || side === 'bottom') {
+    const seg = uvSegments(edge, positions, shapes, side)
+    if (seg) return { classes: `uv-${side}`, data: { ...edge.data, segW: seg.segW, segD: seg.segD } }
+  }
+  if (side === 'left') return { classes: 'side-left', data: edge.data }
+  if (side === 'right') return { classes: 'side-right', data: edge.data }
+  return { classes: '', data: edge.data }
+}
+
+function edgeEl(edge, positions, shapes) {
+  const c = computeEdge(edge, positions, shapes)
+  return c.classes
+    ? { group: 'edges', data: c.data, classes: c.classes }
+    : { group: 'edges', data: c.data }
 }
 
 /**
@@ -147,6 +212,7 @@ const edgeEl = (edge) => {
  * only new nodes get placed off to the side; nothing else moves.
  */
 function syncGraph(cy, nodes, edges, positions) {
+  const shapes = new Map(nodes.map((n) => [n.data.id, n.data.shape]))
   const wantNodes = new Set(nodes.map((n) => n.data.id))
   const wantEdges = new Set(edges.map((e) => e.data.id))
 
@@ -167,12 +233,14 @@ function syncGraph(cy, nodes, edges, positions) {
   edges.forEach((e) => {
     const el = cy.getElementById(e.data.id)
     if (el.nonempty()) {
+      const c = computeEdge(e, positions, shapes)
       el.data('label', e.data.label)
       el.data('etype', e.data.etype)
       el.data('srcSide', e.data.srcSide)
-      el.removeClass('side-top side-bottom side-left side-right')
-      const cls = sideClass(e.data.srcSide)
-      if (cls) el.addClass(cls)
+      el.data('segW', c.data.segW)
+      el.data('segD', c.data.segD)
+      el.removeClass(ROUTING_CLASSES)
+      if (c.classes) el.addClass(c.classes)
     }
   })
 
@@ -193,7 +261,7 @@ function syncGraph(cy, nodes, edges, positions) {
     return { group: 'nodes', data: n.data, position: { ...pos } }
   })
   if (toAdd.length) cy.add(toAdd)
-  if (newEdges.length) cy.add(newEdges.map(edgeEl))
+  if (newEdges.length) cy.add(newEdges.map((e) => edgeEl(e, positions, shapes)))
 }
 
 export default function InteractiveDiagram({ processes, connectors, mode, selected, onSelect }) {
@@ -254,7 +322,8 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
         positionsRef.current.set(n.data.id, { ...pos })
         cy.add({ group: 'nodes', data: n.data, position: { ...pos } })
       })
-      es.forEach((e) => cy.add(edgeEl(e)))
+      const shapes = new Map(ns.map((n) => [n.data.id, n.data.shape]))
+      es.forEach((e) => cy.add(edgeEl(e, positionsRef.current, shapes)))
       applySelection(cy)
       requestAnimationFrame(() => {
         if (!cy.destroyed()) {
