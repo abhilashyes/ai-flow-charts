@@ -178,11 +178,14 @@ function uvSegments(edge, positions, shapes, side) {
   const w = []
   const d = []
   for (const p of wps) {
+    // Weight is the fraction along the endpoint line; distance is the signed
+    // perpendicular offset. Do NOT clamp the weight — a waypoint can legitimately
+    // project outside [0,1] (e.g. target above source), and clamping would bend
+    // the segment diagonally. Cytoscape honours out-of-range weights.
     const tt = ((p.x - S.x) * dx + (p.y - S.y) * dy) / len2
-    // Cytoscape's positive segment-distance points to the opposite side from the
-    // raw cross-product, so negate to keep the hump on the chosen side.
+    // Cytoscape's positive segment-distance points opposite the raw cross-product.
     const dd = ((p.y - S.y) * dx - (p.x - S.x) * dy) / len
-    w.push(Math.min(0.999, Math.max(0.001, tt)).toFixed(4))
+    w.push(tt.toFixed(4))
     d.push(dd.toFixed(2))
   }
   return { segW: w.join(' '), segD: d.join(' ') }
@@ -205,6 +208,35 @@ function edgeEl(edge, positions, shapes) {
   return c.classes
     ? { group: 'edges', data: c.data, classes: c.classes }
     : { group: 'edges', data: c.data }
+}
+
+/**
+ * Recompute the U-detour geometry of every top/bottom edge from the live node
+ * positions, so the detours stay strictly axis-parallel while shapes are dragged
+ * (only their lengths change). Plain taxi edges stay orthogonal on their own.
+ */
+function restyleEdges(cy) {
+  const positions = new Map()
+  const shapes = new Map()
+  cy.nodes().forEach((n) => {
+    positions.set(n.id(), n.position())
+    shapes.set(n.id(), n.data('shape'))
+  })
+  cy.edges().forEach((el) => {
+    const side = el.data('srcSide')
+    if (side === 'top' || side === 'bottom') {
+      const seg = uvSegments(
+        { data: { source: el.data('source'), target: el.data('target') } },
+        positions,
+        shapes,
+        side,
+      )
+      if (seg) {
+        el.data('segW', seg.segW)
+        el.data('segD', seg.segD)
+      }
+    }
+  })
 }
 
 /**
@@ -357,6 +389,18 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
       if (evt.target === cy) onSelectRef.current?.(null)
     })
     cy.on('dragfree', 'node', (evt) => positionsRef.current.set(evt.target.id(), { ...evt.target.position() }))
+
+    // Keep U-detour connectors axis-parallel as nodes move (throttled to a frame).
+    let raf = 0
+    const onMove = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (!cy.destroyed()) restyleEdges(cy)
+      })
+    }
+    cy.on('drag', 'node', onMove)
+    cy.on('position', 'node', onMove)
 
     const ro = new ResizeObserver(() => {
       if (cy.destroyed()) return
