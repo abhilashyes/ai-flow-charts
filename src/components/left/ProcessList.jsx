@@ -1,4 +1,4 @@
-import { Square, Diamond, Trash2, Clock, Users } from 'lucide-react'
+import { Square, Diamond, UserRound, Trash2, Clock, Users } from 'lucide-react'
 
 export default function ProcessList({ processes, selected, onSelect, onDelete }) {
   if (processes.length === 0) {
@@ -13,7 +13,13 @@ export default function ProcessList({ processes, selected, onSelect, onDelete })
     <div className="space-y-2">
       {processes.map((p) => {
         const isSel = selected?.kind === 'process' && selected.id === p.id
-        const Icon = p.type === 'diamond' ? Diamond : Square
+        const Icon = p.type === 'diamond' ? Diamond : p.type === 'customer' ? UserRound : Square
+        const iconColor =
+          p.type === 'diamond'
+            ? 'text-orange-500'
+            : p.type === 'customer'
+              ? 'text-emerald-600'
+              : 'text-blue-500'
         return (
           <div
             key={p.id}
@@ -24,7 +30,7 @@ export default function ProcessList({ processes, selected, onSelect, onDelete })
           >
             <div className="flex items-center gap-2">
               <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">{p.refNum}</span>
-              <Icon size={14} className={p.type === 'diamond' ? 'text-orange-500' : 'text-blue-500'} />
+              <Icon size={14} className={iconColor} />
               <span className="flex-1 truncate text-[13px] font-semibold text-slate-700">{p.name}</span>
               <button
                 onClick={(e) => {

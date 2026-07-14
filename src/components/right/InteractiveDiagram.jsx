@@ -3,8 +3,9 @@ import cytoscape from 'cytoscape'
 import { Sparkles, Plus, X } from 'lucide-react'
 import { routeGraph } from '../../utils/elkLayout'
 
-// Width of one timeline column in flow (model) coordinates.
-const COLUMN_W = 260
+// Width of one timeline column in flow (model) coordinates — a little wider than
+// a shape (rectangles are 136 wide) so a shape sits comfortably in a column.
+const COLUMN_W = 168
 
 /**
  * Editable timeline header + full-height column guides, synced to the live
@@ -103,6 +104,18 @@ const cyStyle = [
     },
   },
   {
+    // Customer rectangle — same size as a task box, distinct green colour.
+    selector: 'node[shape = "customer"]',
+    style: {
+      shape: 'round-rectangle',
+      'background-color': '#dcfce7',
+      'border-color': '#16a34a',
+      width: 136,
+      height: 68,
+      'text-max-width': '120px',
+    },
+  },
+  {
     selector: 'edge',
     style: {
       label: 'data(label)',
@@ -166,7 +179,7 @@ function buildElements(processes, connectors, mode) {
   const nodes = processes.map((p) => ({
     data: {
       id: String(p.id),
-      shape: p.type === 'diamond' ? 'diamond' : 'rectangle',
+      shape: p.type === 'diamond' ? 'diamond' : p.type === 'customer' ? 'customer' : 'rectangle',
       label: `${p.refNum}  ${p.name}\n${p[timeKey]}m · ${p[resKey]} res`,
     },
   }))

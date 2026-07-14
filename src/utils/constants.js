@@ -15,6 +15,7 @@ export const MODE_OPTIONS = [
 export const PROCESS_TYPES = [
   { value: 'rectangle', label: 'Rectangle (task)' },
   { value: 'diamond', label: 'Diamond (decision)' },
+  { value: 'customer', label: 'Rectangle (Customer)' },
 ]
 
 // Connector kinds.
