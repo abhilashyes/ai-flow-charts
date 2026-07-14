@@ -76,6 +76,23 @@ const cyStyle = [
     selector: 'edge[etype = "information-flow"]',
     style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6', 'line-style': 'dashed' },
   },
+  // Per-connector chosen exit side of the source shape (still right-angled).
+  {
+    selector: 'edge.side-top',
+    style: { 'taxi-direction': 'vertical', 'source-endpoint': '0% -50%' },
+  },
+  {
+    selector: 'edge.side-bottom',
+    style: { 'taxi-direction': 'vertical', 'source-endpoint': '0% 50%' },
+  },
+  {
+    selector: 'edge.side-left',
+    style: { 'taxi-direction': 'horizontal', 'source-endpoint': '-50% 0%' },
+  },
+  {
+    selector: 'edge.side-right',
+    style: { 'taxi-direction': 'horizontal', 'source-endpoint': '50% 0%' },
+  },
   {
     selector: '.sel',
     style: {
@@ -110,6 +127,7 @@ function buildElements(processes, connectors, mode) {
         source: String(c.source),
         target: String(c.target),
         etype: c.type,
+        srcSide: c.srcSide || 'auto',
         label: `${c.refNum} · ${c.modeOfConveyance}\n${c[timeKey]}m`,
       },
     }))
@@ -117,7 +135,12 @@ function buildElements(processes, connectors, mode) {
   return { nodes, edges }
 }
 
-const edgeEl = (edge) => ({ group: 'edges', data: edge.data })
+const sideClass = (srcSide) => (srcSide && srcSide !== 'auto' ? `side-${srcSide}` : undefined)
+
+const edgeEl = (edge) => {
+  const cls = sideClass(edge.data.srcSide)
+  return cls ? { group: 'edges', data: edge.data, classes: cls } : { group: 'edges', data: edge.data }
+}
 
 /**
  * Incremental reconcile (plain add/delete): existing nodes keep their positions;
@@ -146,6 +169,10 @@ function syncGraph(cy, nodes, edges, positions) {
     if (el.nonempty()) {
       el.data('label', e.data.label)
       el.data('etype', e.data.etype)
+      el.data('srcSide', e.data.srcSide)
+      el.removeClass('side-top side-bottom side-left side-right')
+      const cls = sideClass(e.data.srcSide)
+      if (cls) el.addClass(cls)
     }
   })
 

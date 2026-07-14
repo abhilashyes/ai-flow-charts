@@ -103,12 +103,23 @@ export function useValueChain() {
         idealTime: Number(values.idealTime),
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
+        srcSide: 'auto', // exit side of the source shape: auto|top|bottom|left|right
         mode: editMode,
       }
       commit({ ...chain, connectors: [...chain.connectors, created] })
       toast(`${created.refNum} added!`)
     },
     [chain, editMode, commit, toast],
+  )
+
+  const updateConnector = useCallback(
+    (id, patch) => {
+      commit({
+        ...chain,
+        connectors: chain.connectors.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      })
+    },
+    [chain, commit],
   )
 
   const deleteConnector = useCallback(
@@ -154,6 +165,7 @@ export function useValueChain() {
     addProcess,
     deleteProcess,
     addConnector,
+    updateConnector,
     deleteConnector,
     undo,
     redo,

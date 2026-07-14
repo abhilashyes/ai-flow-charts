@@ -1,6 +1,14 @@
 import { Trash2, ArrowRight, Clock } from 'lucide-react'
 
-export default function ConnectorList({ connectors, processMap, selected, onSelect, onDelete }) {
+const SIDES = [
+  ['auto', 'Auto'],
+  ['top', 'Top'],
+  ['bottom', 'Bottom'],
+  ['left', 'Left'],
+  ['right', 'Right'],
+]
+
+export default function ConnectorList({ connectors, processMap, selected, onSelect, onDelete, onUpdate }) {
   if (connectors.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[12px] text-slate-400">
@@ -59,6 +67,23 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
                 <span className="text-slate-300">/</span>
                 <span className="text-emerald-600">{c.idealTime}m</span>
               </span>
+            </div>
+            <div
+              className="mt-1.5 flex items-center gap-1.5 pl-1 text-[11px] text-slate-500"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="text-slate-400">Exit side</span>
+              <select
+                value={c.srcSide || 'auto'}
+                onChange={(e) => onUpdate?.(c.id, { srcSide: e.target.value })}
+                className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-600 outline-none focus:border-blue-400"
+              >
+                {SIDES.map(([v, label]) => (
+                  <option key={v} value={v}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         )

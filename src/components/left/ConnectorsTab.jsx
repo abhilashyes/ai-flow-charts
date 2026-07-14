@@ -28,6 +28,7 @@ export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
           selected={vc.selected}
           onSelect={vc.setSelected}
           onDelete={vc.deleteConnector}
+          onUpdate={vc.updateConnector}
         />
       </div>
 
