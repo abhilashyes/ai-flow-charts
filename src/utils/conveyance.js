@@ -4,7 +4,7 @@ import { Mail, Webhook, Handshake, Truck, Database, Users, PackageCheck, HelpCir
 // `Icon` is a lucide component for React panels; `glyph` is an emoji used inside
 // the Cytoscape canvas edge labels (which can only render plain text).
 export const CONVEYANCE = [
-  { value: 'Email', label: 'Email', glyph: '✉️', Icon: Mail },
+  { value: 'Email', label: 'Email', glyph: '📧', Icon: Mail },
   { value: 'API', label: 'API', glyph: '🔌', Icon: Webhook },
   { value: 'Manual Handoff', label: 'Manual Handoff', glyph: '🤝', Icon: Handshake },
   { value: 'Physical Transport', label: 'Physical Transport', glyph: '🚚', Icon: Truck },
