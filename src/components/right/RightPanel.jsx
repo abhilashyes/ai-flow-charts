@@ -31,6 +31,10 @@ export default function RightPanel({ vc }) {
           mode={mode}
           selected={selected}
           onSelect={setSelected}
+          timeline={vc.timeline}
+          onColumnLabel={vc.setColumnLabel}
+          onAddColumn={vc.addColumn}
+          onRemoveColumn={vc.removeColumn}
         />
       </div>
     </div>

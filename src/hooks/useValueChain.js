@@ -11,6 +11,13 @@ function makeInitial() {
     name: 'Untitled Value Chain',
     processes: initialProcesses,
     connectors: initialConnectors,
+    // Editable timeline columns shown across the top of the diagram.
+    timeline: [
+      { id: crypto.randomUUID(), label: 'Day 1' },
+      { id: crypto.randomUUID(), label: 'Day 2' },
+      { id: crypto.randomUUID(), label: 'Day 3' },
+      { id: crypto.randomUUID(), label: 'Day 4' },
+    ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -41,6 +48,28 @@ export function useValueChain() {
   }, [])
 
   const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), [])
+
+  // Timeline columns (lightweight edits, not part of undo history).
+  const setColumnLabel = useCallback((id, label) => {
+    setChain((prev) => ({
+      ...prev,
+      timeline: (prev.timeline ?? []).map((c) => (c.id === id ? { ...c, label } : c)),
+    }))
+  }, [])
+
+  const addColumn = useCallback(() => {
+    setChain((prev) => {
+      const timeline = prev.timeline ?? []
+      return {
+        ...prev,
+        timeline: [...timeline, { id: crypto.randomUUID(), label: `Day ${timeline.length + 1}` }],
+      }
+    })
+  }, [])
+
+  const removeColumn = useCallback((id) => {
+    setChain((prev) => ({ ...prev, timeline: (prev.timeline ?? []).filter((c) => c.id !== id) }))
+  }, [])
 
   // The mode used for editing (standard/ideal); comparison falls back to standard.
   const editMode = currentMode === MODES.IDEAL ? MODES.IDEAL : MODES.STANDARD
@@ -168,6 +197,10 @@ export function useValueChain() {
     addConnector,
     updateConnector,
     deleteConnector,
+    timeline: chain.timeline ?? [],
+    setColumnLabel,
+    addColumn,
+    removeColumn,
     undo,
     redo,
     canUndo: past.current.length > 0,

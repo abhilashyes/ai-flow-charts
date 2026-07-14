@@ -1,7 +1,64 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Plus, X } from 'lucide-react'
 import { routeGraph } from '../../utils/elkLayout'
+
+// Width of one timeline column in flow (model) coordinates.
+const COLUMN_W = 260
+
+/**
+ * Editable timeline header + full-height column guides, synced to the live
+ * Cytoscape viewport so columns pan and zoom with the diagram. Column labels are
+ * editable; columns can be added/removed.
+ */
+function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onRemove }) {
+  const w = COLUMN_W * vp.zoom
+  const cols = timeline.map((c, i) => ({ ...c, x: vp.x + i * w }))
+  const endX = vp.x + timeline.length * w
+
+  return (
+    <>
+      {/* Full-height column guide lines */}
+      <svg className="pointer-events-none absolute inset-0 z-[4]" width={size.w} height={size.h}>
+        {cols.map((c) => (
+          <line key={c.id} x1={c.x} y1={0} x2={c.x} y2={size.h} stroke="#cbd5e1" strokeDasharray="4 5" />
+        ))}
+        <line x1={endX} y1={0} x2={endX} y2={size.h} stroke="#cbd5e1" strokeDasharray="4 5" />
+      </svg>
+
+      {/* Header row with editable column labels */}
+      <div className="absolute inset-x-0 top-0 z-10 h-8 overflow-hidden border-b border-slate-200 bg-white/85 backdrop-blur-sm">
+        {cols.map((c) => (
+          <div key={c.id} className="group absolute top-0 flex h-8 items-center" style={{ left: c.x, width: w }}>
+            <input
+              value={c.label}
+              onChange={(e) => onLabel(c.id, e.target.value)}
+              placeholder="Label"
+              className="mx-1 h-6 w-full min-w-0 rounded bg-transparent px-1 text-center text-[12px] font-semibold text-slate-600 outline-none transition hover:bg-slate-100 focus:bg-white focus:ring-1 focus:ring-blue-300"
+            />
+            {timeline.length > 1 && (
+              <button
+                onClick={() => onRemove(c.id)}
+                title="Remove column"
+                className="absolute right-0 top-0.5 hidden rounded p-0.5 text-slate-300 hover:text-red-500 group-hover:block"
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={onAdd}
+          title="Add column"
+          className="absolute top-1 flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
+          style={{ left: endX + 4 }}
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+    </>
+  )
+}
 
 // Rectangles = tasks (blue), diamonds = decisions (orange). Every connector uses
 // `taxi` routing so it is always drawn with right angles (never diagonal), in a
@@ -328,13 +385,25 @@ function syncGraph(cy, nodes, edges, positions) {
   if (newEdges.length) cy.add(newEdges.map((e) => edgeEl(e, positions, shapes)))
 }
 
-export default function InteractiveDiagram({ processes, connectors, mode, selected, onSelect }) {
+export default function InteractiveDiagram({
+  processes,
+  connectors,
+  mode,
+  selected,
+  onSelect,
+  timeline,
+  onColumnLabel,
+  onAddColumn,
+  onRemoveColumn,
+}) {
   const containerRef = useRef(null)
   const cyRef = useRef(null)
   const positionsRef = useRef(new Map()) // node id -> { x, y }
   const fittedRef = useRef(false)
   const runIdRef = useRef(0)
   const [busy, setBusy] = useState(false)
+  const [vp, setVp] = useState({ x: 0, y: 0, zoom: 1 }) // live viewport (pan + zoom)
+  const [size, setSize] = useState({ w: 0, h: 0 })
 
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
@@ -434,15 +503,31 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     cy.on('drag', 'node', onMove)
     cy.on('position', 'node', onMove)
 
+    // Track the viewport so the timeline header/guides follow pan & zoom.
+    let vpRaf = 0
+    const onViewport = () => {
+      if (vpRaf) return
+      vpRaf = requestAnimationFrame(() => {
+        vpRaf = 0
+        if (cy.destroyed()) return
+        const pan = cy.pan()
+        setVp({ x: pan.x, y: pan.y, zoom: cy.zoom() })
+      })
+    }
+    cy.on('render pan zoom', onViewport)
+
     const ro = new ResizeObserver(() => {
       if (cy.destroyed()) return
       cy.resize()
+      const el = containerRef.current
+      if (el) setSize({ w: el.clientWidth, h: el.clientHeight })
       if (!fittedRef.current && cy.nodes().length > 0) {
         cy.fit(undefined, 40)
         fittedRef.current = true
       }
     })
     ro.observe(containerRef.current)
+    setSize({ w: containerRef.current.clientWidth, h: containerRef.current.clientHeight })
 
     return () => {
       ro.disconnect()
@@ -464,12 +549,23 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
 
+      {timeline?.length > 0 && (
+        <TimelineOverlay
+          vp={vp}
+          size={size}
+          timeline={timeline}
+          onLabel={onColumnLabel}
+          onAdd={onAddColumn}
+          onRemove={onRemoveColumn}
+        />
+      )}
+
       {processes.length > 1 && (
         <button
           onClick={() => rebuild(true)}
           disabled={busy}
           title="Re-layout the diagram left-to-right"
-          className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+          className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
         >
           <Sparkles size={14} className={busy ? 'animate-pulse' : ''} />
           {busy ? 'Arranging…' : 'Auto-arrange'}
