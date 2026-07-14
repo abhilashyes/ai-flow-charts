@@ -76,31 +76,17 @@ const cyStyle = [
     selector: 'edge[etype = "information-flow"]',
     style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6', 'line-style': 'dashed' },
   },
-  // Per-connector chosen exit side of the source shape — all strictly 90°.
-  // Left/right just steer the taxi direction; top/bottom draw an explicit
-  // U-shaped detour (down/up, across, up/down) via right-angle segments.
-  { selector: 'edge.side-left', style: { 'taxi-direction': 'leftward' } },
-  { selector: 'edge.side-right', style: { 'taxi-direction': 'rightward' } },
+  // Connectors with a chosen exit and/or entry side are drawn as an explicit
+  // right-angle poly-line via segments, pinned to the chosen sides. Always 90°.
   {
-    selector: 'edge.uv-top',
+    selector: 'edge.orth',
     style: {
       'curve-style': 'segments',
       'edge-distances': 'endpoints',
       'segment-weights': 'data(segW)',
       'segment-distances': 'data(segD)',
-      'source-endpoint': '0% -50%',
-      'target-endpoint': '0% -50%',
-    },
-  },
-  {
-    selector: 'edge.uv-bottom',
-    style: {
-      'curve-style': 'segments',
-      'edge-distances': 'endpoints',
-      'segment-weights': 'data(segW)',
-      'segment-distances': 'data(segD)',
-      'source-endpoint': '0% 50%',
-      'target-endpoint': '0% 50%',
+      'source-endpoint': 'data(srcEp)',
+      'target-endpoint': 'data(tgtEp)',
     },
   },
   {
@@ -138,6 +124,7 @@ function buildElements(processes, connectors, mode) {
         target: String(c.target),
         etype: c.type,
         srcSide: c.srcSide || 'auto',
+        tgtSide: c.tgtSide || 'auto',
         label: `${c.refNum} · ${c.modeOfConveyance}\n${c[timeKey]}m`,
       },
     }))
@@ -145,8 +132,15 @@ function buildElements(processes, connectors, mode) {
   return { nodes, edges }
 }
 
-const HUMP = 64 // how far a top/bottom detour reaches past the shapes (px)
-const ROUTING_CLASSES = 'side-left side-right uv-top uv-bottom'
+const GAP = 30 // stub length out of each shape before the connector turns (px)
+const ROUTING_CLASSES = 'orth'
+
+const SIDE_META = {
+  right: { ep: '50% 0%', dx: 1, dy: 0 },
+  left: { ep: '-50% 0%', dx: -1, dy: 0 },
+  top: { ep: '0% -50%', dx: 0, dy: -1 },
+  bottom: { ep: '0% 50%', dx: 0, dy: 1 },
+}
 
 function box(id, positions, shapes) {
   const p = positions?.get(id)
@@ -155,22 +149,54 @@ function box(id, positions, shapes) {
   return { x: p.x, y: p.y, w: diamond ? 108 : 136, h: diamond ? 108 : 68 }
 }
 
-// Express two U-detour waypoints as Cytoscape segment weights/distances,
-// measured along the (bottom/top) endpoint-to-endpoint line.
-function uvSegments(edge, positions, shapes, side) {
+// Resolve an "auto" side to whichever side of `self` faces `other`.
+function resolveSide(side, self, other) {
+  if (side && side !== 'auto') return side
+  const dx = other.x - self.x
+  const dy = other.y - self.y
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left'
+  return dy >= 0 ? 'bottom' : 'top'
+}
+
+/**
+ * Build a strictly right-angled poly-line from the source's exit side to the
+ * target's entry side and express it as Cytoscape segment weights/distances
+ * (relative to the endpoint line). Every segment is horizontal or vertical.
+ */
+function orthPath(edge, positions, shapes) {
   const s = box(edge.data.source, positions, shapes)
   const t = box(edge.data.target, positions, shapes)
   if (!s || !t) return null
-  const dir = side === 'bottom' ? 1 : -1
-  const baseY =
-    side === 'bottom' ? Math.max(s.y + s.h / 2, t.y + t.h / 2) : Math.min(s.y - s.h / 2, t.y - t.h / 2)
-  const humpY = baseY + dir * HUMP
-  const S = { x: s.x, y: s.y + (dir * s.h) / 2 } // source border (bottom/top centre)
-  const T = { x: t.x, y: t.y + (dir * t.h) / 2 } // target border (bottom/top centre)
-  const wps = [
-    { x: s.x, y: humpY },
-    { x: t.x, y: humpY },
-  ]
+  const sm = SIDE_META[resolveSide(edge.data.srcSide, s, t)]
+  const tm = SIDE_META[resolveSide(edge.data.tgtSide, t, s)]
+
+  const S = { x: s.x + (sm.dx * s.w) / 2, y: s.y + (sm.dy * s.h) / 2 } // source border
+  const T = { x: t.x + (tm.dx * t.w) / 2, y: t.y + (tm.dy * t.h) / 2 } // target border
+  const s1 = { x: S.x + sm.dx * GAP, y: S.y + sm.dy * GAP } // source stub
+  const t1 = { x: T.x + tm.dx * GAP, y: T.y + tm.dy * GAP } // target stub
+
+  const sH = sm.dy === 0 // source leaves horizontally
+  const tH = tm.dy === 0 // target entered horizontally
+  let mids
+  if (sH && tH) {
+    let mx
+    if (sm.dx > 0 && tm.dx > 0) mx = Math.max(s1.x, t1.x)
+    else if (sm.dx < 0 && tm.dx < 0) mx = Math.min(s1.x, t1.x)
+    else mx = (s1.x + t1.x) / 2
+    mids = [{ x: mx, y: s1.y }, { x: mx, y: t1.y }]
+  } else if (!sH && !tH) {
+    let my
+    if (sm.dy > 0 && tm.dy > 0) my = Math.max(s1.y, t1.y)
+    else if (sm.dy < 0 && tm.dy < 0) my = Math.min(s1.y, t1.y)
+    else my = (s1.y + t1.y) / 2
+    mids = [{ x: s1.x, y: my }, { x: t1.x, y: my }]
+  } else if (sH && !tH) {
+    mids = [{ x: t1.x, y: s1.y }]
+  } else {
+    mids = [{ x: s1.x, y: t1.y }]
+  }
+
+  const wps = [s1, ...mids, t1]
   const dx = T.x - S.x
   const dy = T.y - S.y
   const len2 = dx * dx + dy * dy || 1
@@ -178,29 +204,29 @@ function uvSegments(edge, positions, shapes, side) {
   const w = []
   const d = []
   for (const p of wps) {
-    // Weight is the fraction along the endpoint line; distance is the signed
-    // perpendicular offset. Do NOT clamp the weight — a waypoint can legitimately
-    // project outside [0,1] (e.g. target above source), and clamping would bend
-    // the segment diagonally. Cytoscape honours out-of-range weights.
+    // Fraction along the endpoint line + signed perpendicular offset. Weights are
+    // NOT clamped — a waypoint may legitimately project outside [0,1]; clamping
+    // would bend it diagonally. Cytoscape honours out-of-range weights.
     const tt = ((p.x - S.x) * dx + (p.y - S.y) * dy) / len2
-    // Cytoscape's positive segment-distance points opposite the raw cross-product.
     const dd = ((p.y - S.y) * dx - (p.x - S.x) * dy) / len
     w.push(tt.toFixed(4))
     d.push(dd.toFixed(2))
   }
-  return { segW: w.join(' '), segD: d.join(' ') }
+  return { srcEp: sm.ep, tgtEp: tm.ep, segW: w.join(' '), segD: d.join(' ') }
 }
 
-// Resolve an edge's routing class (+ any segment data) from its chosen side.
+// A connector with no chosen sides uses plain (auto-orienting) taxi routing;
+// otherwise it uses the explicit orthogonal poly-line.
 function computeEdge(edge, positions, shapes) {
-  const side = edge.data.srcSide
-  if (side === 'top' || side === 'bottom') {
-    const seg = uvSegments(edge, positions, shapes, side)
-    if (seg) return { classes: `uv-${side}`, data: { ...edge.data, segW: seg.segW, segD: seg.segD } }
+  const srcAuto = !edge.data.srcSide || edge.data.srcSide === 'auto'
+  const tgtAuto = !edge.data.tgtSide || edge.data.tgtSide === 'auto'
+  if (srcAuto && tgtAuto) return { classes: '', data: edge.data }
+  const path = orthPath(edge, positions, shapes)
+  if (!path) return { classes: '', data: edge.data }
+  return {
+    classes: 'orth',
+    data: { ...edge.data, srcEp: path.srcEp, tgtEp: path.tgtEp, segW: path.segW, segD: path.segD },
   }
-  if (side === 'left') return { classes: 'side-left', data: edge.data }
-  if (side === 'right') return { classes: 'side-right', data: edge.data }
-  return { classes: '', data: edge.data }
 }
 
 function edgeEl(edge, positions, shapes) {
@@ -211,9 +237,8 @@ function edgeEl(edge, positions, shapes) {
 }
 
 /**
- * Recompute the U-detour geometry of every top/bottom edge from the live node
- * positions, so the detours stay strictly axis-parallel while shapes are dragged
- * (only their lengths change). Plain taxi edges stay orthogonal on their own.
+ * Recompute every routed connector from the live node positions so they stay
+ * strictly axis-parallel while shapes are dragged (only their length changes).
  */
 function restyleEdges(cy) {
   const positions = new Map()
@@ -223,18 +248,22 @@ function restyleEdges(cy) {
     shapes.set(n.id(), n.data('shape'))
   })
   cy.edges().forEach((el) => {
-    const side = el.data('srcSide')
-    if (side === 'top' || side === 'bottom') {
-      const seg = uvSegments(
-        { data: { source: el.data('source'), target: el.data('target') } },
-        positions,
-        shapes,
-        side,
-      )
-      if (seg) {
-        el.data('segW', seg.segW)
-        el.data('segD', seg.segD)
-      }
+    const edge = {
+      data: {
+        source: el.data('source'),
+        target: el.data('target'),
+        srcSide: el.data('srcSide'),
+        tgtSide: el.data('tgtSide'),
+      },
+    }
+    const c = computeEdge(edge, positions, shapes)
+    el.removeClass('orth')
+    if (c.classes) {
+      el.data('srcEp', c.data.srcEp)
+      el.data('tgtEp', c.data.tgtEp)
+      el.data('segW', c.data.segW)
+      el.data('segD', c.data.segD)
+      el.addClass('orth')
     }
   })
 }
@@ -269,6 +298,9 @@ function syncGraph(cy, nodes, edges, positions) {
       el.data('label', e.data.label)
       el.data('etype', e.data.etype)
       el.data('srcSide', e.data.srcSide)
+      el.data('tgtSide', e.data.tgtSide)
+      el.data('srcEp', c.data.srcEp)
+      el.data('tgtEp', c.data.tgtEp)
       el.data('segW', c.data.segW)
       el.data('segD', c.data.segD)
       el.removeClass(ROUTING_CLASSES)

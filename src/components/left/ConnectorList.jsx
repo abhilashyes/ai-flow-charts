@@ -69,21 +69,37 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
               </span>
             </div>
             <div
-              className="mt-1.5 flex items-center gap-1.5 pl-1 text-[11px] text-slate-500"
+              className="mt-1.5 flex items-center gap-2 pl-1 text-[11px] text-slate-500"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-slate-400">Exit side</span>
-              <select
-                value={c.srcSide || 'auto'}
-                onChange={(e) => onUpdate?.(c.id, { srcSide: e.target.value })}
-                className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-600 outline-none focus:border-blue-400"
-              >
-                {SIDES.map(([v, label]) => (
-                  <option key={v} value={v}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <label className="flex items-center gap-1">
+                <span className="text-slate-400">Exit</span>
+                <select
+                  value={c.srcSide || 'auto'}
+                  onChange={(e) => onUpdate?.(c.id, { srcSide: e.target.value })}
+                  className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[11px] font-medium text-slate-600 outline-none focus:border-blue-400"
+                >
+                  {SIDES.map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-slate-400">Entry</span>
+                <select
+                  value={c.tgtSide || 'auto'}
+                  onChange={(e) => onUpdate?.(c.id, { tgtSide: e.target.value })}
+                  className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[11px] font-medium text-slate-600 outline-none focus:border-blue-400"
+                >
+                  {SIDES.map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </div>
         )

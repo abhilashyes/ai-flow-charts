@@ -104,6 +104,7 @@ export function useValueChain() {
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
         srcSide: 'auto', // exit side of the source shape: auto|top|bottom|left|right
+        tgtSide: 'auto', // entry side of the target shape: auto|top|bottom|left|right
         mode: editMode,
       }
       commit({ ...chain, connectors: [...chain.connectors, created] })
