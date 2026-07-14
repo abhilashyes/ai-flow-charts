@@ -8,6 +8,17 @@ import { conveyanceOf } from '../../utils/conveyance'
 // a shape (rectangles are 136 wide) so a shape sits comfortably in a column.
 const COLUMN_W = 168
 
+// Model-space x of the centre of timeline column `i` (columns tile from x=0).
+const columnCenterX = (i) => (i + 0.5) * COLUMN_W
+
+// Snap a dragged x to the centre of the nearest column, clamped to the columns
+// that actually exist (0 .. count-1).
+function snapX(x, count) {
+  if (count <= 0) return x
+  const i = Math.min(count - 1, Math.max(0, Math.round(x / COLUMN_W - 0.5)))
+  return columnCenterX(i)
+}
+
 /**
  * Editable timeline header + full-height column guides, synced to the live
  * Cytoscape viewport so columns pan and zoom with the diagram. Column labels are
@@ -423,6 +434,8 @@ export default function InteractiveDiagram({
   onSelectRef.current = onSelect
   const selectedRef = useRef(selected)
   selectedRef.current = selected
+  const timelineRef = useRef(timeline)
+  timelineRef.current = timeline
 
   const { nodes, edges } = useMemo(
     () => buildElements(processes, connectors, mode),
@@ -503,7 +516,15 @@ export default function InteractiveDiagram({
     cy.on('tap', (evt) => {
       if (evt.target === cy) onSelectRef.current?.(null)
     })
-    cy.on('dragfree', 'node', (evt) => positionsRef.current.set(evt.target.id(), { ...evt.target.position() }))
+    cy.on('dragfree', 'node', (evt) => {
+      // Snap the shape to the centre of the nearest timeline column (x only).
+      const node = evt.target
+      const pos = node.position()
+      const x = snapX(pos.x, timelineRef.current.length)
+      node.position({ x, y: pos.y })
+      positionsRef.current.set(node.id(), { x, y: pos.y })
+      if (!cy.destroyed()) restyleEdges(cy)
+    })
 
     // Keep U-detour connectors axis-parallel as nodes move (throttled to a frame).
     let raf = 0
