@@ -24,9 +24,10 @@ export async function routeGraph(processes, connectors) {
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
-      'elk.direction': 'DOWN',
+      // Default flow is left-to-right.
+      'elk.direction': 'RIGHT',
       'elk.edgeRouting': 'ORTHOGONAL',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '90',
       'elk.spacing.nodeNode': '55',
       'elk.spacing.edgeEdge': '18',
       'elk.spacing.edgeNode': '24',
@@ -65,29 +66,32 @@ export async function routeGraph(processes, connectors) {
 }
 
 /**
- * Convert an absolute ELK poly-line into Cytoscape `segments` control values,
- * expressed relative to the straight source→target centre line.
- * Returns { segW, segD } strings, or null when there are no interior bends.
+ * Turn an absolute ELK poly-line into Cytoscape `segments` control values.
+ * We feed ALL ELK points (including the border start/end) as control points,
+ * expressed relative to the source→target centre line. Cytoscape clips the
+ * centre→port stubs inside the node shapes, so the visible path is exactly
+ * ELK's orthogonal poly-line — every leg is a true right angle.
+ * Returns { segW, segD } or null if there is nothing to route.
  */
-export function polylineToSegments(points, source, target) {
-  const mids = points.slice(1, -1)
-  if (mids.length === 0) return null
-
-  const dx = target.x - source.x
-  const dy = target.y - source.y
+export function edgeGeometry(points, sourceCenter, targetCenter) {
+  if (!points || points.length < 2) return null
+  const dx = targetCenter.x - sourceCenter.x
+  const dy = targetCenter.y - sourceCenter.y
   const len2 = dx * dx + dy * dy
   if (len2 === 0) return null
   const len = Math.sqrt(len2)
 
   const weights = []
   const distances = []
-  for (const b of mids) {
-    const t = ((b.x - source.x) * dx + (b.y - source.y) * dy) / len2
-    // signed perpendicular distance (Cytoscape's positive = right of S→T)
-    const d = ((b.x - source.x) * dy - (b.y - source.y) * dx) / len
-    weights.push(Math.min(1, Math.max(0, t)))
+  for (const b of points) {
+    const t = ((b.x - sourceCenter.x) * dx + (b.y - sourceCenter.y) * dy) / len2
+    const d = ((b.x - sourceCenter.x) * dy - (b.y - sourceCenter.y) * dx) / len
+    weights.push(Math.min(0.9999, Math.max(0.0001, t)))
     distances.push(d)
   }
 
-  return { segW: weights.map((n) => n.toFixed(4)).join(' '), segD: distances.map((n) => n.toFixed(2)).join(' ') }
+  return {
+    segW: weights.map((n) => n.toFixed(4)).join(' '),
+    segD: distances.map((n) => n.toFixed(2)).join(' '),
+  }
 }

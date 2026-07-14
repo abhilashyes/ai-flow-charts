@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
 import { Sparkles } from 'lucide-react'
-import { routeGraph, polylineToSegments } from '../../utils/elkLayout'
+import { routeGraph } from '../../utils/elkLayout'
 
-// Cytoscape stylesheet. Rectangles = tasks (blue), diamonds = decisions
-// (orange). Process-flow edges are solid, information-flow edges dashed.
+// Rectangles = tasks (blue), diamonds = decisions (orange). Every connector uses
+// `taxi` routing so it is always drawn with right angles (never diagonal), in a
+// left-to-right direction.
 const cyStyle = [
   {
     selector: 'node',
     style: {
-      // Label sits inside the shape, centered.
       label: 'data(label)',
       'text-wrap': 'wrap',
       'text-valign': 'center',
@@ -58,41 +58,23 @@ const cyStyle = [
       'text-background-opacity': 0.9,
       'text-background-padding': 3,
       'text-background-shape': 'roundrectangle',
-      // Fallback routing for edges added incrementally (before Auto-arrange).
+      // Always right-angled routing, left-to-right.
       'curve-style': 'taxi',
-      'taxi-direction': 'downward',
+      'taxi-direction': 'horizontal',
       'taxi-turn': '50%',
-      'taxi-turn-min-distance': 8,
+      'taxi-turn-min-distance': 6,
       width: 2,
       'target-arrow-shape': 'triangle',
       'arrow-scale': 0.9,
     },
   },
   {
-    // Edges routed orthogonally by ELK: follow the computed bend points.
-    selector: 'edge.routed',
-    style: {
-      'curve-style': 'segments',
-      'edge-distances': 'node-position',
-      'segment-weights': 'data(segW)',
-      'segment-distances': 'data(segD)',
-    },
-  },
-  {
     selector: 'edge[etype = "process-flow"]',
-    style: {
-      'line-color': '#64748b',
-      'target-arrow-color': '#64748b',
-      'line-style': 'solid',
-    },
+    style: { 'line-color': '#64748b', 'target-arrow-color': '#64748b', 'line-style': 'solid' },
   },
   {
     selector: 'edge[etype = "information-flow"]',
-    style: {
-      'line-color': '#8b5cf6',
-      'target-arrow-color': '#8b5cf6',
-      'line-style': 'dashed',
-    },
+    style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6', 'line-style': 'dashed' },
   },
   {
     selector: '.sel',
@@ -135,13 +117,13 @@ function buildElements(processes, connectors, mode) {
   return { nodes, edges }
 }
 
+const edgeEl = (edge) => ({ group: 'edges', data: edge.data })
+
 /**
- * Incremental reconcile (used for plain add/delete): existing nodes keep their
- * positions; only genuinely new nodes get placed; no auto-layout runs. New edges
- * use the taxi fallback until the next Auto-arrange.
+ * Incremental reconcile (plain add/delete): existing nodes keep their positions;
+ * only new nodes get placed off to the side; nothing else moves.
  */
 function syncGraph(cy, nodes, edges, positions) {
-  const wasEmpty = cy.nodes().length === 0
   const wantNodes = new Set(nodes.map((n) => n.data.id))
   const wantEdges = new Set(edges.map((e) => e.data.id))
 
@@ -177,30 +159,14 @@ function syncGraph(cy, nodes, edges, positions) {
   const toAdd = newNodes.map((n) => {
     let pos = positions.get(n.data.id)
     if (!pos) {
-      pos = { x: maxX + 210, y: minY + offset * 96 }
+      pos = { x: maxX + 220, y: minY + offset * 100 }
       offset++
       positions.set(n.data.id, { ...pos })
     }
     return { group: 'nodes', data: n.data, position: { ...pos } }
   })
   if (toAdd.length) cy.add(toAdd)
-  if (newEdges.length) cy.add(newEdges.map((e) => ({ group: 'edges', data: e.data })))
-
-  return wasEmpty
-}
-
-/** Build an edge element, applying ELK's orthogonal geometry when available. */
-function routedEdge(edge, geom, positions) {
-  const poly = geom.get(edge.data.id)
-  const s = positions.get(edge.data.source)
-  const t = positions.get(edge.data.target)
-  if (poly && s && t) {
-    const seg = polylineToSegments(poly, s, t)
-    if (seg) {
-      return { group: 'edges', data: { ...edge.data, segW: seg.segW, segD: seg.segD }, classes: 'routed' }
-    }
-  }
-  return { group: 'edges', data: edge.data }
+  if (newEdges.length) cy.add(newEdges.map(edgeEl))
 }
 
 export default function InteractiveDiagram({ processes, connectors, mode, selected, onSelect }) {
@@ -231,7 +197,7 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     if (sel?.kind === 'connector') cy.getElementById(`e${sel.id}`).addClass('sel')
   }
 
-  // Reconcile the graph. `force` re-runs ELK routing over the whole view.
+  // Reconcile the graph. `force` re-runs ELK layout (positions) over the view.
   const rebuild = async (force) => {
     const cy = cyRef.current
     if (!cy || cy.destroyed()) return
@@ -243,17 +209,14 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
       cy.elements().remove()
     }
 
-    // A "fresh view" is the first render or a full node-set swap (e.g. switching
-    // Standard ↔ Ideal): nothing carries over, so run ELK routing + fit. Plain
-    // add/delete keeps existing nodes and takes the incremental path.
     const wantNodeIds = new Set(ns.map((n) => n.data.id))
     const carriedOver = cy.nodes().filter((n) => wantNodeIds.has(n.id())).length
     const freshView = carriedOver === 0
-    const needRoute = ns.length > 0 && (force || freshView)
+    const needLayout = ns.length > 0 && (force || freshView)
 
-    if (needRoute) {
+    if (needLayout) {
       if (force) setBusy(true)
-      const { positions, edges: geom } = await routeGraph(procs, conns)
+      const { positions } = await routeGraph(procs, conns)
       if (myRun !== runIdRef.current || cy.destroyed()) {
         if (force) setBusy(false)
         return
@@ -264,17 +227,16 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
         positionsRef.current.set(n.data.id, { ...pos })
         cy.add({ group: 'nodes', data: n.data, position: { ...pos } })
       })
-      es.forEach((e) => cy.add(routedEdge(e, geom, positionsRef.current)))
+      es.forEach((e) => cy.add(edgeEl(e)))
       applySelection(cy)
       requestAnimationFrame(() => {
         if (!cy.destroyed()) {
-          cy.fit(undefined, 36)
+          cy.fit(undefined, 40)
           fittedRef.current = true
         }
       })
       setBusy(false)
     } else {
-      // Incremental add/delete: existing nodes stay put, no re-fit.
       syncGraph(cy, ns, es, positionsRef.current)
       applySelection(cy)
       if (cy.nodes().length > 0) fittedRef.current = true
@@ -304,7 +266,7 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
       if (cy.destroyed()) return
       cy.resize()
       if (!fittedRef.current && cy.nodes().length > 0) {
-        cy.fit(undefined, 36)
+        cy.fit(undefined, 40)
         fittedRef.current = true
       }
     })
@@ -317,12 +279,10 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
     }
   }, [])
 
-  // Reconcile whenever the data changes.
   useEffect(() => {
     rebuild(false)
   }, [dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reflect external selection as a highlight.
   useEffect(() => {
     const cy = cyRef.current
     if (cy && !cy.destroyed()) applySelection(cy)
@@ -336,7 +296,7 @@ export default function InteractiveDiagram({ processes, connectors, mode, select
         <button
           onClick={() => rebuild(true)}
           disabled={busy}
-          title="Re-route all connectors orthogonally around the shapes"
+          title="Re-layout the diagram left-to-right"
           className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
         >
           <Sparkles size={14} className={busy ? 'animate-pulse' : ''} />
