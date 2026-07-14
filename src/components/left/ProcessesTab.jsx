@@ -5,6 +5,7 @@ import ProcessForm from './ProcessForm'
 
 export default function ProcessesTab({ vc, editMode, editModeLabel }) {
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null) // process being edited
   const processes = vc.chain.processes.filter((p) => p.mode === editMode)
 
   return (
@@ -25,6 +26,7 @@ export default function ProcessesTab({ vc, editMode, editModeLabel }) {
           processes={processes}
           selected={vc.selected}
           onSelect={vc.setSelected}
+          onEdit={(p) => setEditing(p)}
           onDelete={vc.deleteProcess}
         />
       </div>
@@ -35,6 +37,16 @@ export default function ProcessesTab({ vc, editMode, editModeLabel }) {
           editMode={editMode}
           onSubmit={vc.addProcess}
           onClose={() => setShowForm(false)}
+        />
+      )}
+
+      {editing && (
+        <ProcessForm
+          processes={vc.chain.processes}
+          editMode={editMode}
+          initial={editing}
+          onSubmit={(values) => vc.editProcess(editing.id, values)}
+          onClose={() => setEditing(null)}
         />
       )}
     </div>

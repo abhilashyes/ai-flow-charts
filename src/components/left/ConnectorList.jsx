@@ -1,4 +1,5 @@
-import { Trash2, ArrowRight, Clock } from 'lucide-react'
+import { Pencil, Trash2, ArrowRight, Clock } from 'lucide-react'
+import { conveyanceOf } from '../../utils/conveyance'
 
 const SIDES = [
   ['auto', 'Auto'],
@@ -8,7 +9,7 @@ const SIDES = [
   ['right', 'Right'],
 ]
 
-export default function ConnectorList({ connectors, processMap, selected, onSelect, onDelete, onUpdate }) {
+export default function ConnectorList({ connectors, processMap, selected, onSelect, onEdit, onDelete, onUpdate }) {
   if (connectors.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[12px] text-slate-400">
@@ -24,6 +25,8 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
         const src = processMap.get(c.source)
         const tgt = processMap.get(c.target)
         const isInfo = c.type === 'information-flow'
+        const conv = conveyanceOf(c.modeOfConveyance)
+        const ConvIcon = conv.Icon
         return (
           <div
             key={c.id}
@@ -46,6 +49,16 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
               <button
                 onClick={(e) => {
                   e.stopPropagation()
+                  onEdit?.(c)
+                }}
+                title="Edit connector"
+                className="rounded p-1 text-slate-300 opacity-0 transition hover:bg-blue-50 hover:text-blue-500 group-hover:opacity-100"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
                   onDelete(c.id)
                 }}
                 title="Delete connector"
@@ -56,11 +69,12 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
             </div>
             <div className="mt-1.5 flex items-center gap-3 pl-1 text-[11px] text-slate-500">
               <span
-                className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                title={conv.label}
+                className={`inline-flex items-center rounded p-1 ${
                   isInfo ? 'bg-violet-50 text-violet-600' : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                {c.modeOfConveyance}
+                <ConvIcon size={13} />
               </span>
               <span className="flex items-center gap-1">
                 <Clock size={11} /> {c.stdTime}m

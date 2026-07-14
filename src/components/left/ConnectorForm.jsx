@@ -1,24 +1,26 @@
 import { useState } from 'react'
 import { Modal, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
-import { CONNECTOR_TYPES, CONVEYANCE_MODES } from '../../utils/constants'
+import { CONNECTOR_TYPES } from '../../utils/constants'
+import { CONVEYANCE } from '../../utils/conveyance'
 import { generateRefNum } from '../../utils/refnum'
 import { validateConnector, hasErrors } from '../../utils/validation'
 
-export default function ConnectorForm({ connectors, processes, editMode, onSubmit, onClose }) {
-  const nextRef = generateRefNum('C', connectors)
+export default function ConnectorForm({ connectors, processes, editMode, onSubmit, onClose, initial }) {
+  const isEdit = Boolean(initial)
+  const refNum = isEdit ? initial.refNum : generateRefNum('C', connectors)
   // Only processes from the mode we're editing can be connected.
   const options = processes.filter((p) => p.mode === editMode)
 
-  const [values, setValues] = useState({
-    source: '',
-    target: '',
-    type: 'process-flow',
-    modeOfConveyance: 'Email',
-    stdTime: '',
-    idealTime: '',
-    stdRes: '',
-    idealRes: '',
-  })
+  const [values, setValues] = useState(() => ({
+    source: initial?.source ?? '',
+    target: initial?.target ?? '',
+    type: initial?.type ?? 'process-flow',
+    modeOfConveyance: initial?.modeOfConveyance ?? 'Email',
+    stdTime: initial?.stdTime ?? '',
+    idealTime: initial?.idealTime ?? '',
+    stdRes: initial?.stdRes ?? '',
+    idealRes: initial?.idealRes ?? '',
+  }))
   const [errors, setErrors] = useState({})
 
   const set = (field) => (v) => setValues((prev) => ({ ...prev, [field]: v }))
@@ -33,14 +35,18 @@ export default function ConnectorForm({ connectors, processes, editMode, onSubmi
   }
 
   return (
-    <Modal title="Add Connector" subtitle={`New ${editMode} connector · ${nextRef}`} onClose={onClose}>
+    <Modal
+      title={isEdit ? 'Edit Connector' : 'Add Connector'}
+      subtitle={isEdit ? `${refNum} · ${editMode}` : `New ${editMode} connector · ${refNum}`}
+      onClose={onClose}
+    >
       {options.length < 2 ? (
         <div className="rounded-md bg-amber-50 px-3 py-4 text-center text-[13px] text-amber-700">
           You need at least two <b>{editMode}</b> processes before adding a connector.
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
-          <ReadOnlyField label="Ref #" value={nextRef} />
+          <ReadOnlyField label="Ref #" value={refNum} />
 
           <SelectField label="From Process" value={values.source} onChange={set('source')} error={errors.source}>
             <option value="">Select source…</option>
@@ -69,9 +75,9 @@ export default function ConnectorForm({ connectors, processes, editMode, onSubmi
               ))}
             </SelectField>
             <SelectField label="Mode of Conveyance" value={values.modeOfConveyance} onChange={set('modeOfConveyance')}>
-              {CONVEYANCE_MODES.map((m) => (
-                <option key={m} value={m}>
-                  {m}
+              {CONVEYANCE.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.glyph} {m.label}
                 </option>
               ))}
             </SelectField>
@@ -84,7 +90,7 @@ export default function ConnectorForm({ connectors, processes, editMode, onSubmi
             <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
           </div>
 
-          <FormActions onCancel={onClose} submitLabel="Save Connector" />
+          <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Connector' : 'Save Connector'} />
         </form>
       )}
     </Modal>

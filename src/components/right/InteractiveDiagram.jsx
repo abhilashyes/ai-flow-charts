@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
 import { Sparkles, Plus, X } from 'lucide-react'
 import { routeGraph } from '../../utils/elkLayout'
+import { conveyanceOf } from '../../utils/conveyance'
 
 // Width of one timeline column in flow (model) coordinates — a little wider than
 // a shape (rectangles are 136 wide) so a shape sits comfortably in a column.
@@ -195,7 +196,7 @@ function buildElements(processes, connectors, mode) {
         etype: c.type,
         srcSide: c.srcSide || 'auto',
         tgtSide: c.tgtSide || 'auto',
-        label: `${c.refNum} · ${c.modeOfConveyance}\n${c[timeKey]}m`,
+        label: `${c.refNum} ${conveyanceOf(c.modeOfConveyance).glyph}\n${c[timeKey]}m`,
       },
     }))
 

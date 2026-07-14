@@ -4,16 +4,17 @@ import { PROCESS_TYPES } from '../../utils/constants'
 import { generateRefNum } from '../../utils/refnum'
 import { validateProcess, hasErrors } from '../../utils/validation'
 
-export default function ProcessForm({ processes, editMode, onSubmit, onClose }) {
-  const nextRef = generateRefNum('P', processes)
-  const [values, setValues] = useState({
-    name: '',
-    type: 'rectangle',
-    stdTime: '',
-    idealTime: '',
-    stdRes: '',
-    idealRes: '',
-  })
+export default function ProcessForm({ processes, editMode, onSubmit, onClose, initial }) {
+  const isEdit = Boolean(initial)
+  const refNum = isEdit ? initial.refNum : generateRefNum('P', processes)
+  const [values, setValues] = useState(() => ({
+    name: initial?.name ?? '',
+    type: initial?.type ?? 'rectangle',
+    stdTime: initial?.stdTime ?? '',
+    idealTime: initial?.idealTime ?? '',
+    stdRes: initial?.stdRes ?? '',
+    idealRes: initial?.idealRes ?? '',
+  }))
   const [errors, setErrors] = useState({})
 
   const set = (field) => (v) => setValues((prev) => ({ ...prev, [field]: v }))
@@ -29,13 +30,13 @@ export default function ProcessForm({ processes, editMode, onSubmit, onClose }) 
 
   return (
     <Modal
-      title="Add Process"
-      subtitle={`New ${editMode} process · ${nextRef}`}
+      title={isEdit ? 'Edit Process' : 'Add Process'}
+      subtitle={isEdit ? `${refNum} · ${editMode}` : `New ${editMode} process · ${refNum}`}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <ReadOnlyField label="Ref #" value={nextRef} />
+          <ReadOnlyField label="Ref #" value={refNum} />
           <SelectField label="Type" value={values.type} onChange={set('type')}>
             {PROCESS_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -61,7 +62,7 @@ export default function ProcessForm({ processes, editMode, onSubmit, onClose }) 
           <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
         </div>
 
-        <FormActions onCancel={onClose} submitLabel="Save Process" />
+        <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Process' : 'Save Process'} />
       </form>
     </Modal>
   )

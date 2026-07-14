@@ -5,6 +5,7 @@ import ConnectorForm from './ConnectorForm'
 
 export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null) // connector being edited
   const connectors = vc.chain.connectors.filter((c) => c.mode === editMode)
   const processMap = new Map(vc.chain.processes.map((p) => [p.id, p]))
 
@@ -27,6 +28,7 @@ export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
           processMap={processMap}
           selected={vc.selected}
           onSelect={vc.setSelected}
+          onEdit={(c) => setEditing(c)}
           onDelete={vc.deleteConnector}
           onUpdate={vc.updateConnector}
         />
@@ -39,6 +41,17 @@ export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
           editMode={editMode}
           onSubmit={vc.addConnector}
           onClose={() => setShowForm(false)}
+        />
+      )}
+
+      {editing && (
+        <ConnectorForm
+          connectors={vc.chain.connectors}
+          processes={vc.chain.processes}
+          editMode={editMode}
+          initial={editing}
+          onSubmit={(values) => vc.editConnector(editing.id, values)}
+          onClose={() => setEditing(null)}
         />
       )}
     </div>

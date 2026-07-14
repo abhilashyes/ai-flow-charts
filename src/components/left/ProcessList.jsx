@@ -1,6 +1,6 @@
-import { Square, Diamond, UserRound, Trash2, Clock, Users } from 'lucide-react'
+import { Square, Diamond, UserRound, Pencil, Trash2, Clock, Users } from 'lucide-react'
 
-export default function ProcessList({ processes, selected, onSelect, onDelete }) {
+export default function ProcessList({ processes, selected, onSelect, onEdit, onDelete }) {
   if (processes.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[12px] text-slate-400">
@@ -32,6 +32,16 @@ export default function ProcessList({ processes, selected, onSelect, onDelete })
               <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">{p.refNum}</span>
               <Icon size={14} className={iconColor} />
               <span className="flex-1 truncate text-[13px] font-semibold text-slate-700">{p.name}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit?.(p)
+                }}
+                title="Edit process"
+                className="rounded p-1 text-slate-300 opacity-0 transition hover:bg-blue-50 hover:text-blue-500 group-hover:opacity-100"
+              >
+                <Pencil size={14} />
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation()

@@ -104,6 +104,29 @@ export function useValueChain() {
     [chain, editMode, commit, toast],
   )
 
+  const editProcess = useCallback(
+    (id, values) => {
+      commit({
+        ...chain,
+        processes: chain.processes.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                name: values.name.trim(),
+                type: values.type,
+                stdTime: Number(values.stdTime),
+                idealTime: Number(values.idealTime),
+                stdRes: Number(values.stdRes),
+                idealRes: Number(values.idealRes),
+              }
+            : p,
+        ),
+      })
+      toast(`${chain.processes.find((p) => p.id === id)?.refNum ?? 'Process'} updated`)
+    },
+    [chain, commit, toast],
+  )
+
   const deleteProcess = useCallback(
     (id) => {
       const proc = chain.processes.find((p) => p.id === id)
@@ -152,6 +175,31 @@ export function useValueChain() {
     [chain, commit],
   )
 
+  const editConnector = useCallback(
+    (id, values) => {
+      commit({
+        ...chain,
+        connectors: chain.connectors.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                source: Number(values.source),
+                target: Number(values.target),
+                type: values.type,
+                modeOfConveyance: values.modeOfConveyance,
+                stdTime: Number(values.stdTime),
+                idealTime: Number(values.idealTime),
+                stdRes: Number(values.stdRes),
+                idealRes: Number(values.idealRes),
+              }
+            : c,
+        ),
+      })
+      toast(`${chain.connectors.find((c) => c.id === id)?.refNum ?? 'Connector'} updated`)
+    },
+    [chain, commit, toast],
+  )
+
   const deleteConnector = useCallback(
     (id) => {
       const conn = chain.connectors.find((c) => c.id === id)
@@ -193,8 +241,10 @@ export function useValueChain() {
     toast,
     dismissToast,
     addProcess,
+    editProcess,
     deleteProcess,
     addConnector,
+    editConnector,
     updateConnector,
     deleteConnector,
     timeline: chain.timeline ?? [],
