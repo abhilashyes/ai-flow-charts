@@ -120,7 +120,7 @@ const cyStyle = [
     selector: 'edge',
     style: {
       label: 'data(label)',
-      'font-size': 8,
+      'font-size': 12,
       'font-weight': 500,
       color: '#475569',
       'text-wrap': 'wrap',
@@ -196,7 +196,7 @@ function buildElements(processes, connectors, mode) {
         etype: c.type,
         srcSide: c.srcSide || 'auto',
         tgtSide: c.tgtSide || 'auto',
-        label: `${c.refNum} ${conveyanceOf(c.modeOfConveyance).glyph}\n${c[timeKey]}m`,
+        label: `${conveyanceOf(c.modeOfConveyance).glyph}\n${c[timeKey]}m`,
       },
     }))
 
