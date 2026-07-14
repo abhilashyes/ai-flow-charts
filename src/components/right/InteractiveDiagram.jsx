@@ -131,7 +131,7 @@ const cyStyle = [
     selector: 'edge',
     style: {
       label: 'data(label)',
-      'font-size': 12,
+      'font-size': 9,
       'font-weight': 500,
       color: '#475569',
       'text-wrap': 'wrap',
