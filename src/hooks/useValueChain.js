@@ -1,37 +1,29 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { MODES } from '../utils/constants'
 import { generateRefNum, nextId } from '../utils/refnum'
-import { initialProcesses, initialConnectors } from '../utils/sampleData'
+import { makeBlankChain } from '../utils/flow'
+import { saveFlow } from '../utils/store'
 
 const HISTORY_LIMIT = 50
 
-function makeInitial() {
-  return {
-    id: crypto.randomUUID(),
-    name: 'Untitled Value Chain',
-    processes: initialProcesses,
-    connectors: initialConnectors,
-    // Editable timeline columns shown across the top of the diagram.
-    timeline: [
-      { id: crypto.randomUUID(), label: 'Day 1' },
-      { id: crypto.randomUUID(), label: 'Day 2' },
-      { id: crypto.randomUUID(), label: 'Day 3' },
-      { id: crypto.randomUUID(), label: 'Day 4' },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-}
-
 /**
- * Central state for the value chain: processes, connectors, current mode,
+ * Central state for one value chain: processes, connectors, current mode,
  * selection, toasts, and an undo/redo history stack. Mutators compute the next
  * chain from the current one and pass it to `commit`, which snapshots the
  * previous chain for undo. Effects (toasts, history) are kept out of the state
- * updater so nothing double-fires under React StrictMode.
+ * updater so nothing double-fires under React StrictMode. The current chain is
+ * persisted to the flow store whenever it changes.
+ *
+ * `initialChain` is the flow being edited; mount the editor with `key={flow.id}`
+ * so switching flows re-initialises this hook.
  */
-export function useValueChain() {
-  const [chain, setChain] = useState(makeInitial)
+export function useValueChain(initialChain) {
+  const [chain, setChain] = useState(() => initialChain ?? makeBlankChain())
+
+  // Persist to the flow store on every change (localStorage upsert by id).
+  useEffect(() => {
+    saveFlow(chain)
+  }, [chain])
   const [currentMode, setCurrentMode] = useState(MODES.STANDARD)
   const [selected, setSelected] = useState(null) // { kind: 'process'|'connector', id }
   const [toasts, setToasts] = useState([])
@@ -48,6 +40,11 @@ export function useValueChain() {
   }, [])
 
   const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), [])
+
+  // Rename the flow (lightweight, not part of undo history).
+  const setName = useCallback((name) => {
+    setChain((prev) => ({ ...prev, name, updatedAt: new Date().toISOString() }))
+  }, [])
 
   // Timeline columns (lightweight edits, not part of undo history).
   const setColumnLabel = useCallback((id, label) => {
@@ -247,6 +244,7 @@ export function useValueChain() {
     editConnector,
     updateConnector,
     deleteConnector,
+    setName,
     timeline: chain.timeline ?? [],
     setColumnLabel,
     addColumn,

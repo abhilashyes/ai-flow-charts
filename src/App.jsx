@@ -1,37 +1,25 @@
-import { useEffect } from 'react'
-import Header from './components/Header'
-import MainLayout from './components/MainLayout'
-import LeftPanel from './components/left/LeftPanel'
-import RightPanel from './components/right/RightPanel'
-import ToastStack from './components/Toast'
-import { useValueChain } from './hooks/useValueChain'
+import { useState } from 'react'
+import HomeScreen from './components/home/HomeScreen'
+import Editor from './components/Editor'
+import { getFlow } from './utils/store'
 
+/**
+ * Top-level router: the Home screen (a gallery of saved flows) and the Editor
+ * (the workspace for one flow). No URL routing library — a small view state is
+ * enough for two screens.
+ */
 export default function App() {
-  const vc = useValueChain()
+  const [openId, setOpenId] = useState(null)
 
-  // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redo.
-  useEffect(() => {
-    const onKey = (e) => {
-      const t = e.target
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return
-      const mod = e.ctrlKey || e.metaKey
-      if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        vc.undo()
-      } else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
-        e.preventDefault()
-        vc.redo()
-      }
+  if (openId) {
+    const chain = getFlow(openId)
+    // Guard against a stale/deleted id: fall back to Home.
+    if (!chain) {
+      setOpenId(null)
+      return null
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [vc])
+    return <Editor key={openId} initialChain={chain} onBack={() => setOpenId(null)} />
+  }
 
-  return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <Header />
-      <MainLayout left={<LeftPanel vc={vc} />} right={<RightPanel vc={vc} />} />
-      <ToastStack toasts={vc.toasts} onDismiss={vc.dismissToast} />
-    </div>
-  )
+  return <HomeScreen onOpen={setOpenId} />
 }
