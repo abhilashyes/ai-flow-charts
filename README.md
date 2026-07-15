@@ -5,8 +5,9 @@ Chains)**. Enter structured process and connector data on the left; an
 interactive diagram updates in real time on the right. Model a **Standard**
 (as-is) and an **Ideal** (to-be) chain and compare them side by side.
 
-> **Phase 1 — mock UI.** All state lives in memory (React). No backend yet;
-> sample data is pre-loaded. Backend/persistence/export come in later phases.
+Runs two ways: a **localStorage demo** (default, zero setup) or **self-hosted**
+with a Node/Express + **MongoDB** backend and login. See **[SETUP.md](./SETUP.md)**
+for `docker compose up`, env vars, and wiring **Microsoft Entra** sign-in.
 
 ## Tech stack
 - **React 18** + **Vite** (used instead of the deprecated create-react-app)
@@ -14,13 +15,20 @@ interactive diagram updates in real time on the right. Model a **Standard**
 - **Cytoscape.js** for the interactive diagram
 - **lucide-react** icons
 
-## Getting started
+## Getting started (localStorage demo)
 ```bash
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # production build → dist/
 npm run preview  # preview the build
 ```
+
+## Backend, auth & deployment
+For MongoDB-backed persistence and login (and an org deployment via
+`docker compose`), see **[SETUP.md](./SETUP.md)**. In short: the client picks its
+storage backend from `VITE_API_URL` (unset = localStorage; set = the REST API in
+`server/`), and auth is provider-based with a demo sign-in now and a documented
+**Microsoft Entra** seam (`server/auth/entraProvider.js`) for later.
 
 ## Features (Phase 1)
 - **25 / 75 resizable layout** — drag the divider between the input panel and the
@@ -54,6 +62,6 @@ src/
     right/      InteractiveDiagram (Cytoscape), ComparisonView, RightPanel
 ```
 
-## Roadmap (later phases)
-Backend API + persistence, authentication, save/load, PDF/PNG export,
-click-diagram-to-edit, and responsive/mobile polish.
+## Roadmap
+Wire Microsoft Entra sign-in (seam in place), PDF/PNG export, and
+responsive/mobile polish.

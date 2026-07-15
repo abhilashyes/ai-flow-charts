@@ -1,0 +1,31 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # Exposed for local inspection; remove the ports line to keep it internal.
+    ports:
+      - '27017:27017'
+
+  app:
+    build:
+      context: .
+      # Same-origin: the server serves the client and the client calls /api on it.
+      args:
+        VITE_API_URL: ''
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/value-chain-mapper
+      # CHANGE THIS in real deployments (any long random string).
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-sample}
+    ports:
+      - '4000:4000'
+
+volumes:
+  mongo-data:

@@ -24,9 +24,14 @@ export function useFlowEditor(initialFlow) {
   const [editRequest, setEditRequest] = useState(null) // { kind, id, nonce } — open a tile's edit dialog
   const [toasts, setToasts] = useState([])
 
-  // Persist to the flow store on every change (localStorage upsert by id).
+  // Persist to the flow store on every change, debounced so API mode doesn't
+  // POST on every keystroke/drag tick. Fire-and-forget (offline/local resolves
+  // instantly; a failed API write is logged, not surfaced mid-edit).
   useEffect(() => {
-    saveFlow(flow)
+    const t = setTimeout(() => {
+      Promise.resolve(saveFlow(flow)).catch((e) => console.error('[store] save failed', e))
+    }, 400)
+    return () => clearTimeout(t)
   }, [flow])
 
   const past = useRef([])

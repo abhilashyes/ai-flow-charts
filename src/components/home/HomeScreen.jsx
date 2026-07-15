@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Share2, Plus, Search } from 'lucide-react'
+import { Share2, Plus, Search, LogOut, Loader2 } from 'lucide-react'
 import { useFlows } from '../../hooks/useFlows'
 import FlowCard from './FlowCard'
 import { Modal, TextField, FormActions } from '../formControls'
 
-export default function HomeScreen({ onOpen }) {
-  const { flows, createFlow, renameFlow, duplicateFlow, removeFlow } = useFlows()
+export default function HomeScreen({ onOpen, user, onSignOut }) {
+  const { flows, loading, createFlow, renameFlow, duplicateFlow, removeFlow } = useFlows()
   const [query, setQuery] = useState('')
   const [renaming, setRenaming] = useState(null) // flow being renamed
   const [creating, setCreating] = useState(false)
@@ -30,6 +30,15 @@ export default function HomeScreen({ onOpen }) {
         >
           <Plus size={16} /> New flow
         </button>
+        {onSignOut && (
+          <button
+            onClick={onSignOut}
+            title={user ? `Sign out ${user.name}` : 'Sign out'}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <LogOut size={15} /> Sign out
+          </button>
+        )}
       </header>
 
       {/* Toolbar */}
@@ -47,7 +56,11 @@ export default function HomeScreen({ onOpen }) {
 
       {/* Grid */}
       <div className="vcm-scrollbar flex-1 overflow-y-auto p-5">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex h-full items-center justify-center text-slate-400">
+            <Loader2 size={22} className="animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState hasFlows={flows.length > 0} onCreate={() => setCreating(true)} />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-4">
@@ -71,8 +84,8 @@ export default function HomeScreen({ onOpen }) {
           title="New flow"
           initial=""
           submitLabel="Create"
-          onSubmit={(name) => {
-            const id = createFlow(name)
+          onSubmit={async (name) => {
+            const id = await createFlow(name)
             setCreating(false)
             onOpen(id)
           }}

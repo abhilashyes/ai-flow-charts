@@ -1,0 +1,20 @@
+{
+  "name": "value-chain-mapper-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API + auth backend for Value Chain Mapper (MongoDB, pluggable auth).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5"
+  }
+}

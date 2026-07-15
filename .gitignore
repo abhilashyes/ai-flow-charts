@@ -1,6 +1,10 @@
 node_modules
 dist
 dist-ssr
+# local env / secrets (keep the *.example files tracked)
+.env
+.env.local
+server/.env
 *.local
 .DS_Store
 *.log

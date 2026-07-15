@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Served from https://<user>.github.io/ai-flow-charts/ on GitHub Pages, so the
-// production build needs that sub-path as its base. Dev stays at root.
+// Base path:
+//  - GitHub Pages serves from /ai-flow-charts/ (default for a build).
+//  - When the Express server hosts the client (docker/self-hosted), set APP_BASE=/
+//    so asset paths resolve at the domain root.
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/ai-flow-charts/' : '/',
+  base: process.env.APP_BASE ?? (command === 'build' ? '/ai-flow-charts/' : '/'),
 }))

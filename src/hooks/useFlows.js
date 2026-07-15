@@ -1,47 +1,58 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { listFlows, saveFlow, deleteFlow, getFlow, ensureSeeded } from '../utils/store'
 import { makeBlankFlow, cloneFlow } from '../utils/flow'
 
 // Home-screen state: the list of saved flows plus create/rename/duplicate/delete
-// actions. Reads from and writes to the localStorage-backed flow store.
+// actions. Backed by the async store (localStorage or the REST API).
 export function useFlows() {
-  const [flows, setFlows] = useState(() => {
-    ensureSeeded()
-    return listFlows()
-  })
+  const [flows, setFlows] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const refresh = useCallback(() => setFlows(listFlows()), [])
+  const refresh = useCallback(async () => setFlows(await listFlows()), [])
 
-  const createFlow = useCallback(
-    (name) => {
-      const flow = makeBlankFlow(name?.trim() || 'Untitled Value Chain')
-      saveFlow(flow)
-      setFlows(listFlows())
-      return flow.id
-    },
-    [],
-  )
-
-  const renameFlow = useCallback((id, name) => {
-    const chain = getFlow(id)
-    if (!chain) return
-    saveFlow({ ...chain, name: name.trim() || chain.name, updatedAt: new Date().toISOString() })
-    setFlows(listFlows())
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        await ensureSeeded()
+        const list = await listFlows()
+        if (!cancelled) setFlows(list)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const duplicateFlow = useCallback((id) => {
-    const flow = getFlow(id)
+  const createFlow = useCallback(async (name) => {
+    const flow = makeBlankFlow(name?.trim() || 'Untitled Value Chain')
+    await saveFlow(flow)
+    setFlows(await listFlows())
+    return flow.id
+  }, [])
+
+  const renameFlow = useCallback(async (id, name) => {
+    const flow = await getFlow(id)
+    if (!flow) return
+    await saveFlow({ ...flow, name: name.trim() || flow.name, updatedAt: new Date().toISOString() })
+    setFlows(await listFlows())
+  }, [])
+
+  const duplicateFlow = useCallback(async (id) => {
+    const flow = await getFlow(id)
     if (!flow) return
     const copy = cloneFlow(flow)
-    saveFlow(copy)
-    setFlows(listFlows())
+    await saveFlow(copy)
+    setFlows(await listFlows())
     return copy.id
   }, [])
 
-  const removeFlow = useCallback((id) => {
-    deleteFlow(id)
-    setFlows(listFlows())
+  const removeFlow = useCallback(async (id) => {
+    await deleteFlow(id)
+    setFlows(await listFlows())
   }, [])
 
-  return { flows, refresh, createFlow, renameFlow, duplicateFlow, removeFlow }
+  return { flows, loading, refresh, createFlow, renameFlow, duplicateFlow, removeFlow }
 }
