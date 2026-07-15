@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
-import { Sparkles, Plus, X } from 'lucide-react'
-import { routeGraph } from '../../utils/elkLayout'
+import { Plus, X } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
-
-// Width of one timeline column in flow (model) coordinates — a little wider than
-// a shape (rectangles are 136 wide) so a shape sits comfortably in a column.
-const COLUMN_W = 168
+import { COLUMN_W, DEFAULT_LANE_H } from '../../utils/constants'
 
 // Model-space x of the centre of timeline column `i` (columns tile from x=0).
 const columnCenterX = (i) => (i + 0.5) * COLUMN_W
@@ -20,48 +16,19 @@ function snapX(x, count) {
   return columnCenterX(i)
 }
 
-// Height of one shape-slot in model coordinates — tall enough for a 108px
-// diamond plus breathing room. A lane's height is `rows` × this (drag-resizable).
-const LANE_ROW_H = 132
-const LANE_MAX_ROWS = 6
 const LANE_GUTTER = 92 // px width of the left label gutter (screen space)
-
-const laneRows = (l) => Math.max(1, l?.rows || 1)
+const laneHeight = (l) => Math.max(60, l?.height || DEFAULT_LANE_H)
 
 // Model-space top y of each lane (lanes tile downward from y=0) + total height.
+// Lanes are purely visual bands now — they don't constrain shape positions.
 function laneTops(lanes) {
   const tops = []
   let acc = 0
   for (const l of lanes) {
     tops.push(acc)
-    acc += laneRows(l) * LANE_ROW_H
+    acc += laneHeight(l)
   }
   return { tops, total: acc }
-}
-
-// Model-space y of the centre of lane `i` (accounts for variable lane heights).
-function laneCenterYForIndex(lanes, i) {
-  const { tops } = laneTops(lanes)
-  return tops[i] + (laneRows(lanes[i]) * LANE_ROW_H) / 2
-}
-
-// Model-space y for a shape in lane `i` at sub-row `row` (clamped to the lane's
-// rows). Lets multiple shapes stack vertically within one lane.
-function laneSubRowY(lanes, i, row) {
-  const { tops } = laneTops(lanes)
-  const r = Math.min(laneRows(lanes[i]) - 1, Math.max(0, row || 0))
-  return tops[i] + (r + 0.5) * LANE_ROW_H
-}
-
-// Nearest lane index for a dragged y, clamped to the existing lanes.
-function snapLaneIndexByY(lanes, y) {
-  if (lanes.length === 0) return -1
-  const { tops } = laneTops(lanes)
-  for (let i = 0; i < lanes.length; i++) {
-    const bottom = tops[i] + laneRows(lanes[i]) * LANE_ROW_H
-    if (y < bottom) return i
-  }
-  return lanes.length - 1
 }
 
 /**
@@ -151,7 +118,7 @@ function LaneBands({ vp, size, lanes }) {
             x={0}
             y={vp.y + tops[i] * vp.zoom}
             width={size.w}
-            height={laneRows(l) * LANE_ROW_H * vp.zoom}
+            height={laneHeight(l) * vp.zoom}
             fill="#f1f5f9"
           />
         ) : null,
@@ -169,25 +136,17 @@ function LaneBands({ vp, size, lanes }) {
 function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onResize }) {
   const { tops, total } = laneTops(lanes)
   const y = (modelY) => vp.y + modelY * vp.zoom
-  const rows = lanes.map((l, i) => ({ ...l, top: tops[i], h: laneRows(l) * LANE_ROW_H }))
+  const rows = lanes.map((l, i) => ({ ...l, top: tops[i], h: laneHeight(l) }))
   const endY = y(total)
   const editable = Boolean(onLabel)
 
-  // Drag a lane's bottom edge to resize; snaps to whole shape-rows (1..MAX).
+  // Drag a lane's bottom edge to resize freely (min height clamp in the hook).
   const startResize = (lane, e) => {
     e.preventDefault()
     e.stopPropagation()
     const startClientY = e.clientY
-    const startRows = laneRows(lane)
-    let cur = startRows
-    const move = (ev) => {
-      const deltaRows = Math.round(((ev.clientY - startClientY) / vp.zoom) / LANE_ROW_H)
-      const next = Math.min(LANE_MAX_ROWS, Math.max(1, startRows + deltaRows))
-      if (next !== cur) {
-        cur = next
-        onResize(lane.id, next)
-      }
-    }
+    const startH = laneHeight(lane)
+    const move = (ev) => onResize(lane.id, startH + (ev.clientY - startClientY) / vp.zoom)
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
@@ -203,20 +162,6 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
         {rows.map((r) => (
           <line key={r.id} x1={0} y1={y(r.top)} x2={size.w} y2={y(r.top)} stroke="#e2e8f0" strokeDasharray="4 5" />
         ))}
-        {/* faint sub-row dividers so stacking slots are visible in tall lanes */}
-        {rows.flatMap((r) =>
-          Array.from({ length: laneRows(r) - 1 }, (_, k) => (
-            <line
-              key={`${r.id}-sub${k}`}
-              x1={0}
-              y1={y(r.top + (k + 1) * LANE_ROW_H)}
-              x2={size.w}
-              y2={y(r.top + (k + 1) * LANE_ROW_H)}
-              stroke="#eef2f7"
-              strokeDasharray="2 6"
-            />
-          )),
-        )}
         <line x1={0} y1={endY} x2={size.w} y2={endY} stroke="#e2e8f0" strokeDasharray="4 5" />
       </svg>
 
@@ -251,7 +196,7 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
             {editable && (
               <button
                 onPointerDown={(e) => startResize(r, e)}
-                title="Drag to resize (snaps to whole shapes)"
+                title="Drag to resize the lane"
                 className="pointer-events-auto absolute -bottom-1 left-0 flex h-2 w-full cursor-ns-resize items-center justify-center opacity-0 transition group-hover:opacity-100"
               >
                 <span className="h-1 w-8 rounded-full bg-slate-300 group-hover:bg-blue-400" />
@@ -401,8 +346,6 @@ function buildElements(processes, connectors) {
     data: {
       id: String(p.id),
       shape: p.type === 'diamond' ? 'diamond' : p.type === 'customer' ? 'customer' : 'rectangle',
-      laneId: p.laneId ?? null,
-      laneRow: p.laneRow ?? 0,
       label: `${p.abnormal ? '🚩 ' : ''}${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
     },
   }))
@@ -637,15 +580,12 @@ export default function InteractiveDiagram({
   onAddLaneTop,
   onRemoveLane,
   onLaneResize,
-  onAssignLane,
+  onMoveNode,
   onEditRequest,
 }) {
   const containerRef = useRef(null)
   const cyRef = useRef(null)
-  const positionsRef = useRef(new Map()) // node id -> { x, y }
   const fittedRef = useRef(false)
-  const runIdRef = useRef(0)
-  const [busy, setBusy] = useState(false)
   const [vp, setVp] = useState({ x: 0, y: 0, zoom: 1 }) // live viewport (pan + zoom)
   const [size, setSize] = useState({ w: 0, h: 0 })
 
@@ -655,10 +595,8 @@ export default function InteractiveDiagram({
   selectedRef.current = selected
   const timelineRef = useRef(timeline)
   timelineRef.current = timeline
-  const lanesRef = useRef(lanes)
-  lanesRef.current = lanes
-  const onAssignLaneRef = useRef(onAssignLane)
-  onAssignLaneRef.current = onAssignLane
+  const onMoveNodeRef = useRef(onMoveNode)
+  onMoveNodeRef.current = onMoveNode
   const onEditRequestRef = useRef(onEditRequest)
   onEditRequestRef.current = onEditRequest
 
@@ -668,10 +606,13 @@ export default function InteractiveDiagram({
   )
   const dataRef = useRef({ processes, connectors, nodes, edges })
   dataRef.current = { processes, connectors, nodes, edges }
-  // Re-run the reconcile when node/edge data OR lane order/heights change (both
-  // drive node Y). Lane relabels don't need a re-pin.
-  const lanesKey = useMemo(() => lanes.map((l) => `${l.id}:${laneRows(l)}`).join(','), [lanes])
-  const dataKey = useMemo(() => JSON.stringify({ nodes, edges, lanesKey }), [nodes, edges, lanesKey])
+  // `dataKey` triggers add/remove/label reconcile; `positionsKey` triggers the
+  // position-sync effect that places nodes from their saved x,y.
+  const dataKey = useMemo(() => JSON.stringify({ nodes, edges }), [nodes, edges])
+  const positionsKey = useMemo(
+    () => processes.map((p) => `${p.id}:${Math.round(p.x ?? 0)}:${Math.round(p.y ?? 0)}`).join(','),
+    [processes],
+  )
 
   const applySelection = (cy) => {
     cy.elements().removeClass('sel')
@@ -680,71 +621,20 @@ export default function InteractiveDiagram({
     if (sel?.kind === 'connector') cy.getElementById(`e${sel.id}`).addClass('sel')
   }
 
-  // Pin every lane-assigned node's Y to its lane's centre (X kept). Unassigned
-  // nodes are left where they are. Keeps lanes deterministic across reloads,
-  // auto-arrange, and form/drag reassignment.
-  const applyLanes = (cy) => {
-    const lanes = lanesRef.current
-    const order = new Map(lanes.map((l, i) => [l.id, i]))
-    if (order.size === 0) return
-    dataRef.current.processes.forEach((p) => {
-      if (p.laneId == null || !order.has(p.laneId)) return
-      const el = cy.getElementById(String(p.id))
-      if (el.empty()) return
-      const x = el.position('x')
-      const y = laneSubRowY(lanes, order.get(p.laneId), p.laneRow ?? 0)
-      el.position({ x, y })
-      positionsRef.current.set(String(p.id), { x, y })
-    })
-    restyleEdges(cy)
-  }
-
-  // Reconcile the graph. `force` re-runs ELK layout (positions) over the view.
-  const rebuild = async (force) => {
+  // Reconcile the graph from the data: add/update/remove nodes & edges, placing
+  // each shape at its saved position (positions are the source of truth now).
+  const reconcile = () => {
     const cy = cyRef.current
     if (!cy || cy.destroyed()) return
-    const { processes: procs, connectors: conns, nodes: ns, edges: es } = dataRef.current
-    const myRun = ++runIdRef.current
-
-    if (force) {
-      ns.forEach((n) => positionsRef.current.delete(n.data.id))
-      cy.elements().remove()
-    }
-
-    const wantNodeIds = new Set(ns.map((n) => n.data.id))
-    const carriedOver = cy.nodes().filter((n) => wantNodeIds.has(n.id())).length
-    const freshView = carriedOver === 0
-    const needLayout = ns.length > 0 && (force || freshView)
-
-    if (needLayout) {
-      if (force) setBusy(true)
-      const { positions } = await routeGraph(procs, conns)
-      if (myRun !== runIdRef.current || cy.destroyed()) {
-        if (force) setBusy(false)
-        return
-      }
-      cy.elements().remove()
-      ns.forEach((n) => {
-        const pos = positions.get(n.data.id) || positionsRef.current.get(n.data.id) || { x: 0, y: 0 }
-        positionsRef.current.set(n.data.id, { ...pos })
-        cy.add({ group: 'nodes', data: n.data, position: { ...pos } })
-      })
-      const shapes = new Map(ns.map((n) => [n.data.id, n.data.shape]))
-      es.forEach((e) => cy.add(edgeEl(e, positionsRef.current, shapes)))
-      applyLanes(cy)
-      applySelection(cy)
+    const { processes: procs, nodes: ns, edges: es } = dataRef.current
+    const posMap = new Map(procs.map((p) => [String(p.id), { x: p.x ?? 0, y: p.y ?? 0 }]))
+    syncGraph(cy, ns, es, posMap)
+    applySelection(cy)
+    if (!fittedRef.current && cy.nodes().length > 0) {
+      fittedRef.current = true
       requestAnimationFrame(() => {
-        if (!cy.destroyed()) {
-          cy.fit(undefined, 40)
-          fittedRef.current = true
-        }
+        if (!cy.destroyed()) cy.fit(undefined, 40)
       })
-      setBusy(false)
-    } else {
-      syncGraph(cy, ns, es, positionsRef.current)
-      applyLanes(cy)
-      applySelection(cy)
-      if (cy.nodes().length > 0) fittedRef.current = true
     }
   }
 
@@ -784,36 +674,14 @@ export default function InteractiveDiagram({
       }
     })
     cy.on('dragfree', 'node', (evt) => {
-      // Snap X to the nearest timeline column. For Y: if dropped inside the lane
-      // stack, snap to a lane sub-row (shapes stack within a lane); if dropped
-      // above or below the stack, leave it outside any lane (free Y).
+      // X snaps to the nearest timeline column; Y is free. Persist the position.
       const node = evt.target
       const pos = node.position()
       const x = snapX(pos.x, timelineRef.current.length)
-      const lanes = lanesRef.current
-      let y = pos.y
-      let assign // { laneId, laneRow } | undefined = no lanes, don't touch
-      if (lanes.length > 0) {
-        const { total, tops } = laneTops(lanes)
-        if (pos.y < 0 || pos.y >= total) {
-          assign = { laneId: null, laneRow: 0 } // outside the lanes
-        } else {
-          const li = snapLaneIndexByY(lanes, pos.y)
-          const row = Math.floor((pos.y - tops[li]) / LANE_ROW_H)
-          assign = { laneId: lanes[li].id, laneRow: row }
-          y = laneSubRowY(lanes, li, row)
-        }
-      }
+      const y = pos.y
       node.position({ x, y })
-      positionsRef.current.set(node.id(), { x, y })
       if (!cy.destroyed()) restyleEdges(cy)
-      if (assign) {
-        const pid = Number(node.id())
-        const proc = dataRef.current.processes.find((p) => p.id === pid)
-        if (proc && (proc.laneId !== assign.laneId || (proc.laneRow ?? 0) !== assign.laneRow)) {
-          onAssignLaneRef.current?.(pid, assign.laneId, assign.laneRow)
-        }
-      }
+      onMoveNodeRef.current?.(Number(node.id()), x, y)
     })
 
     // Keep U-detour connectors axis-parallel as nodes move (throttled to a frame).
@@ -862,29 +730,24 @@ export default function InteractiveDiagram({
   }, [])
 
   useEffect(() => {
-    rebuild(false)
+    reconcile()
   }, [dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync node positions from the data (drags, undo/redo, column-left shift).
+  useEffect(() => {
+    const cy = cyRef.current
+    if (!cy || cy.destroyed()) return
+    dataRef.current.processes.forEach((p) => {
+      const el = cy.getElementById(String(p.id))
+      if (el.nonempty() && p.x != null && p.y != null) el.position({ x: p.x, y: p.y })
+    })
+    restyleEdges(cy)
+  }, [positionsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const cy = cyRef.current
     if (cy && !cy.destroyed()) applySelection(cy)
   }, [selected, dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Add a timeline column on the LEFT: shift existing content right by one column
-  // so it stays aligned with its (now shifted) labels, then prepend the column.
-  const handleAddColumnLeft = () => {
-    const cy = cyRef.current
-    if (cy && !cy.destroyed()) {
-      cy.nodes().forEach((n) => {
-        const p = n.position()
-        const np = { x: p.x + COLUMN_W, y: p.y }
-        n.position(np)
-        positionsRef.current.set(n.id(), np)
-      })
-      restyleEdges(cy)
-    }
-    onAddColumnStart?.()
-  }
 
   return (
     <div className="relative h-full w-full">
@@ -913,7 +776,7 @@ export default function InteractiveDiagram({
           timeline={timeline}
           onLabel={onColumnLabel}
           onAdd={onAddColumn}
-          onAddLeft={onAddColumnStart ? handleAddColumnLeft : undefined}
+          onAddLeft={onAddColumnStart}
           onRemove={onRemoveColumn}
         />
       )}
@@ -926,18 +789,6 @@ export default function InteractiveDiagram({
           className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
         >
           <Plus size={14} /> Swim lane
-        </button>
-      )}
-
-      {processes.length > 1 && (
-        <button
-          onClick={() => rebuild(true)}
-          disabled={busy}
-          title="Re-layout the diagram left-to-right"
-          className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-        >
-          <Sparkles size={14} className={busy ? 'animate-pulse' : ''} />
-          {busy ? 'Arranging…' : 'Auto-arrange'}
         </button>
       )}
 

@@ -1,6 +1,17 @@
 import { initialProcesses, initialConnectors } from './sampleData'
 import { renumber } from './refnum'
-import { DEFAULT_TIME_UNIT } from './constants'
+import { DEFAULT_TIME_UNIT, COLUMN_W, DEFAULT_LANE_H } from './constants'
+
+const ROW_Y = 220 // default y for a row-laid-out shape
+const LEGACY_ROW_H = 132 // old per-shape lane row height, for rows→height migration
+
+// Assign a left-to-right position (aligned to timeline columns) to any process
+// that has no saved position yet. Positions are persisted per shape thereafter.
+export function layoutRow(processes) {
+  return processes.map((p, i) =>
+    p.x == null || p.y == null ? { ...p, x: (i + 0.5) * COLUMN_W, y: ROW_Y } : p,
+  )
+}
 
 // Default timeline columns shown across the top of a diagram version.
 function defaultTimeline() {
@@ -71,7 +82,6 @@ function normalizeElement(el) {
     stdTimeUnit: rest.stdTimeUnit ?? DEFAULT_TIME_UNIT,
     idealTimeUnit: rest.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     laneId: rest.laneId ?? null,
-    laneRow: rest.laneRow ?? 0,
   }
 }
 
@@ -96,20 +106,19 @@ export function migrateFlowV1(oldChain) {
   }
 }
 
-// Ensure a loaded flow has the current shape: every version has a `lanes` array
-// (empty by default) and every process has `laneId`/`laneRow` keys.
+// Ensure a loaded flow has the current shape: lanes carry a pixel `height`,
+// processes carry `laneId` + a saved position. Migrates legacy `rows`/`laneRow`.
 export function normalizeFlow(flow) {
   if (!flow?.versions) return flow
   for (const key of Object.keys(flow.versions)) {
     const v = flow.versions[key]
     if (!v) continue
-    if (!Array.isArray(v.lanes)) v.lanes = []
-    else v.lanes = v.lanes.map((l) => (l.rows ? l : { ...l, rows: 1 })) // backfill height
-    v.processes = (v.processes ?? []).map((p) => ({
-      ...p,
-      laneId: p.laneId ?? null,
-      laneRow: p.laneRow ?? 0,
-    }))
+    v.lanes = Array.isArray(v.lanes)
+      ? v.lanes.map(({ rows, ...l }) => ({ ...l, height: l.height ?? (rows ? rows * LEGACY_ROW_H : DEFAULT_LANE_H) }))
+      : []
+    v.processes = layoutRow(
+      (v.processes ?? []).map(({ laneRow, ...p }) => ({ ...p, laneId: p.laneId ?? null })),
+    )
   }
   return flow
 }

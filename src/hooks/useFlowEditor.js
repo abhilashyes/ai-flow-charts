@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEFAULT_TIME_UNIT, VERSION_LABEL } from '../utils/constants'
+import { DEFAULT_TIME_UNIT, VERSION_LABEL, COLUMN_W, DEFAULT_LANE_H } from '../utils/constants'
 import { nextId, renumber } from '../utils/refnum'
 import { makeBlankFlow } from '../utils/flow'
 import { saveFlow } from '../utils/store'
@@ -92,9 +92,12 @@ export function useFlowEditor(initialFlow) {
 
   const addColumnStart = useCallback(
     () =>
+      // Prepend a column and shift all shapes right one column so content stays
+      // aligned with its (now shifted) labels.
       patchVersion((v) => ({
         ...v,
         timeline: [{ id: crypto.randomUUID(), label: '' }, ...(v.timeline ?? [])],
+        processes: (v.processes ?? []).map((p) => ({ ...p, x: (p.x ?? 0) + COLUMN_W })),
       })),
     [patchVersion],
   )
@@ -118,7 +121,7 @@ export function useFlowEditor(initialFlow) {
     () =>
       patchVersion((v) => {
         const lanes = v.lanes ?? []
-        return { ...v, lanes: [...lanes, { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}`, rows: 1 }] }
+        return { ...v, lanes: [...lanes, { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}`, height: DEFAULT_LANE_H }] }
       }),
     [patchVersion],
   )
@@ -127,16 +130,16 @@ export function useFlowEditor(initialFlow) {
     () =>
       patchVersion((v) => ({
         ...v,
-        lanes: [{ id: crypto.randomUUID(), label: '', rows: 1 }, ...(v.lanes ?? [])],
+        lanes: [{ id: crypto.randomUUID(), label: '', height: DEFAULT_LANE_H }, ...(v.lanes ?? [])],
       })),
     [patchVersion],
   )
 
-  const setLaneRows = useCallback(
-    (id, rows) =>
+  const setLaneHeight = useCallback(
+    (id, height) =>
       patchVersion((v) => ({
         ...v,
-        lanes: (v.lanes ?? []).map((l) => (l.id === id ? { ...l, rows: Math.max(1, rows) } : l)),
+        lanes: (v.lanes ?? []).map((l) => (l.id === id ? { ...l, height: Math.max(60, Math.round(height)) } : l)),
       })),
     [patchVersion],
   )
@@ -182,7 +185,9 @@ export function useFlowEditor(initialFlow) {
         idealRes: Number(values.idealRes),
         abnormal: Boolean(values.abnormal),
         laneId: values.laneId || null,
-        laneRow: 0,
+        // new shapes drop to the right of the current content (then freely moved)
+        x: version.processes.length ? Math.max(...version.processes.map((p) => p.x ?? 0)) + 200 : COLUMN_W / 2,
+        y: 220,
       }
       const processes = renumber([...version.processes, created], 'P')
       commit({ ...version, processes })
@@ -195,25 +200,23 @@ export function useFlowEditor(initialFlow) {
     (id, values) => {
       commit({
         ...version,
-        processes: version.processes.map((p) => {
-          if (p.id !== id) return p
-          const laneId = values.laneId || null
-          return {
-            ...p,
-            name: values.name.trim(),
-            type: values.type,
-            stdTime: Number(values.stdTime),
-            stdTimeUnit: values.stdTimeUnit || DEFAULT_TIME_UNIT,
-            idealTime: Number(values.idealTime),
-            idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
-            stdRes: Number(values.stdRes),
-            idealRes: Number(values.idealRes),
-            abnormal: Boolean(values.abnormal),
-            laneId,
-            // keep the sub-row when the lane is unchanged; reset when it changes
-            laneRow: laneId === p.laneId ? p.laneRow ?? 0 : 0,
-          }
-        }),
+        processes: version.processes.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                name: values.name.trim(),
+                type: values.type,
+                stdTime: Number(values.stdTime),
+                stdTimeUnit: values.stdTimeUnit || DEFAULT_TIME_UNIT,
+                idealTime: Number(values.idealTime),
+                idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
+                stdRes: Number(values.stdRes),
+                idealRes: Number(values.idealRes),
+                abnormal: Boolean(values.abnormal),
+                laneId: values.laneId || null,
+              }
+            : p,
+        ),
       })
       toast(`${version.processes.find((p) => p.id === id)?.refNum ?? 'Process'} updated`)
     },
@@ -272,15 +275,12 @@ export function useFlowEditor(initialFlow) {
     [version, commit],
   )
 
-  // Assign a process to a swim lane + sub-row (used by drag). null lane = outside
-  // any lane (free position). History-tracked.
-  const setProcessLane = useCallback(
-    (processId, laneId, laneRow = 0) => {
+  // Persist a shape's position after a drag (history-tracked, one per drag).
+  const setProcessPos = useCallback(
+    (processId, x, y) => {
       commit({
         ...version,
-        processes: version.processes.map((p) =>
-          p.id === processId ? { ...p, laneId: laneId ?? null, laneRow: laneId ? laneRow : 0 } : p,
-        ),
+        processes: version.processes.map((p) => (p.id === processId ? { ...p, x, y } : p)),
       })
     },
     [version, commit],
@@ -396,9 +396,9 @@ export function useFlowEditor(initialFlow) {
     setLaneLabel,
     addLane,
     addLaneStart,
-    setLaneRows,
+    setLaneHeight,
     removeLane,
-    setProcessLane,
+    setProcessPos,
     undo,
     redo,
     canUndo: past.current.length > 0,

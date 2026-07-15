@@ -24,8 +24,8 @@ export default function RightPanel({ vc }) {
           onAddLane={vc.addLane}
           onAddLaneTop={vc.addLaneStart}
           onRemoveLane={vc.removeLane}
-          onLaneResize={vc.setLaneRows}
-          onAssignLane={vc.setProcessLane}
+          onLaneResize={vc.setLaneHeight}
+          onMoveNode={vc.setProcessPos}
           onEditRequest={vc.requestEdit}
         />
       </div>

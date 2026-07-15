@@ -1,11 +1,11 @@
 // Pre-loaded sample diagram for the Current version of the seeded flow: a single
-// coherent left-to-right value chain. No `mode` — versions are the container now.
+// coherent left-to-right value chain. Positions (x,y) are persisted per shape.
 export const initialProcesses = [
-  { id: 1, refNum: 'P01', name: 'Raw Material Receipt', type: 'rectangle', stdTime: 60, stdTimeUnit: 'min', idealTime: 30, idealTimeUnit: 'min', stdRes: 3, idealRes: 2 },
-  { id: 2, refNum: 'P02', name: 'Quality Check', type: 'diamond', stdTime: 45, stdTimeUnit: 'min', idealTime: 20, idealTimeUnit: 'min', stdRes: 2, idealRes: 1 },
-  { id: 3, refNum: 'P03', name: 'Manufacturing', type: 'rectangle', stdTime: 8, stdTimeUnit: 'hr', idealTime: 4, idealTimeUnit: 'hr', stdRes: 5, idealRes: 3 },
-  { id: 4, refNum: 'P04', name: 'Packaging', type: 'rectangle', stdTime: 120, stdTimeUnit: 'min', idealTime: 60, idealTimeUnit: 'min', stdRes: 3, idealRes: 2 },
-  { id: 5, refNum: 'P05', name: 'End Customer', type: 'customer', stdTime: 0, stdTimeUnit: 'min', idealTime: 0, idealTimeUnit: 'min', stdRes: 0, idealRes: 0 },
+  { id: 1, refNum: 'P01', name: 'Raw Material Receipt', type: 'rectangle', stdTime: 60, stdTimeUnit: 'min', idealTime: 30, idealTimeUnit: 'min', stdRes: 3, idealRes: 2, laneId: null, x: 84, y: 220 },
+  { id: 2, refNum: 'P02', name: 'Quality Check', type: 'diamond', stdTime: 45, stdTimeUnit: 'min', idealTime: 20, idealTimeUnit: 'min', stdRes: 2, idealRes: 1, laneId: null, x: 252, y: 220 },
+  { id: 3, refNum: 'P03', name: 'Manufacturing', type: 'rectangle', stdTime: 8, stdTimeUnit: 'hr', idealTime: 4, idealTimeUnit: 'hr', stdRes: 5, idealRes: 3, laneId: null, x: 420, y: 220 },
+  { id: 4, refNum: 'P04', name: 'Packaging', type: 'rectangle', stdTime: 120, stdTimeUnit: 'min', idealTime: 60, idealTimeUnit: 'min', stdRes: 3, idealRes: 2, laneId: null, x: 588, y: 220 },
+  { id: 5, refNum: 'P05', name: 'End Customer', type: 'customer', stdTime: 0, stdTimeUnit: 'min', idealTime: 0, idealTimeUnit: 'min', stdRes: 0, idealRes: 0, laneId: null, x: 756, y: 220 },
 ]
 
 export const initialConnectors = [
