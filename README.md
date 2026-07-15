@@ -63,5 +63,10 @@ src/
     right/      InteractiveDiagram (Cytoscape), ComparisonView, RightPanel
 ```
 
+## Releases & integrations
+See [CHANGELOG.md](./CHANGELOG.md) for release notes. From **v1.0.0** the public
+integration surface (REST API, flow JSON, storage) is a compatibility contract —
+[docs/INTEGRATIONS.md](./docs/INTEGRATIONS.md).
+
 ## Roadmap
 PDF/PNG export and responsive/mobile polish.
