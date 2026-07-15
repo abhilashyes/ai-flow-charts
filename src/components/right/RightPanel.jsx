@@ -22,7 +22,9 @@ export default function RightPanel({ vc }) {
           lanes={vc.lanes}
           onLaneLabel={vc.setLaneLabel}
           onAddLane={vc.addLane}
+          onAddLaneTop={vc.addLaneStart}
           onRemoveLane={vc.removeLane}
+          onLaneResize={vc.setLaneRows}
           onAssignLane={vc.setProcessLane}
           onEditRequest={vc.requestEdit}
         />

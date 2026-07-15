@@ -118,8 +118,26 @@ export function useFlowEditor(initialFlow) {
     () =>
       patchVersion((v) => {
         const lanes = v.lanes ?? []
-        return { ...v, lanes: [...lanes, { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}` }] }
+        return { ...v, lanes: [...lanes, { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}`, rows: 1 }] }
       }),
+    [patchVersion],
+  )
+
+  const addLaneStart = useCallback(
+    () =>
+      patchVersion((v) => ({
+        ...v,
+        lanes: [{ id: crypto.randomUUID(), label: '', rows: 1 }, ...(v.lanes ?? [])],
+      })),
+    [patchVersion],
+  )
+
+  const setLaneRows = useCallback(
+    (id, rows) =>
+      patchVersion((v) => ({
+        ...v,
+        lanes: (v.lanes ?? []).map((l) => (l.id === id ? { ...l, rows: Math.max(1, rows) } : l)),
+      })),
     [patchVersion],
   )
 
@@ -373,6 +391,8 @@ export function useFlowEditor(initialFlow) {
     removeColumn,
     setLaneLabel,
     addLane,
+    addLaneStart,
+    setLaneRows,
     removeLane,
     setProcessLane,
     undo,

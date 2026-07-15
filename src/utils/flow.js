@@ -12,11 +12,12 @@ function defaultTimeline() {
   ]
 }
 
-// Default swim lanes (horizontal rows) for a diagram version.
+// Default swim lanes (horizontal rows) for a diagram version. `rows` is the
+// lane height measured in shape-slots (drag-resizable, snaps to whole shapes).
 export function defaultLanes() {
   return [
-    { id: crypto.randomUUID(), label: 'Lane 1' },
-    { id: crypto.randomUUID(), label: 'Lane 2' },
+    { id: crypto.randomUUID(), label: 'Lane 1', rows: 1 },
+    { id: crypto.randomUUID(), label: 'Lane 2', rows: 1 },
   ]
 }
 
@@ -115,6 +116,7 @@ export function normalizeFlow(flow) {
     const v = flow.versions[key]
     if (!v) continue
     if (!Array.isArray(v.lanes)) v.lanes = defaultLanes()
+    else v.lanes = v.lanes.map((l) => (l.rows ? l : { ...l, rows: 1 })) // backfill height
     v.processes = (v.processes ?? []).map((p) => (p.laneId === undefined ? { ...p, laneId: null } : p))
   }
   return flow
