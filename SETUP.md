@@ -77,31 +77,42 @@ needed.
   (active) does demo sign-in; `entraProvider.js` is the Entra stub. Sessions are
   a signed JWT in an httpOnly cookie (`server/auth/session.js`).
 
-## 5. Wiring Microsoft Entra later
+## 5. Microsoft Entra (Azure AD) sign-in
 
-The Entra provider is intentionally a **stub** so the seam, env vars, and
-cookie-session shape are already in place — enabling it is additive, not a
-refactor. To turn it on:
+Entra sign-in is **implemented** (OIDC authorization-code flow with PKCE, via
+`@azure/msal-node` in `server/auth/entraProvider.js`). To turn it on you only
+need to register an app and set env vars — no code changes.
 
-1. Register an application in the **Microsoft Entra admin center**. Note the
-   tenant ID, client ID, and a client secret. Add a redirect URI
-   (e.g. `https://your-host/api/auth/callback`).
-2. Set in `server/.env`:
-   ```
-   AUTH_PROVIDER=entra
-   ENTRA_TENANT_ID=...
-   ENTRA_CLIENT_ID=...
-   ENTRA_CLIENT_SECRET=...
-   ENTRA_REDIRECT_URI=https://your-host/api/auth/callback
-   ```
-3. Implement the OIDC authorization-code flow in
-   `server/auth/entraProvider.js` (using `@azure/msal-node` or
-   `passport-azure-ad`): `GET /api/auth/login` redirects to Entra; a
-   `GET /api/auth/callback` route exchanges the code, validates the `id_token`,
-   upserts the user, calls `issueSession(res, user)`, and redirects to the app.
-   `requireAuth` and the flow routes need no changes.
-4. In `src/components/LoginPage.jsx`, enable the "Sign in with Microsoft" button
-   to hit `${VITE_API_URL}/api/auth/login`.
+**a. Register an app** in the [Microsoft Entra admin center](https://entra.microsoft.com)
+(Identity → Applications → App registrations → New registration):
+- Copy the **Directory (tenant) ID** and **Application (client) ID**.
+- Certificates & secrets → **New client secret** → copy the secret **Value**.
+- Authentication → **Add a platform → Web** → Redirect URI:
+  `https://your-host/api/auth/callback` (must match `ENTRA_REDIRECT_URI` exactly).
+
+**b. Configure** `server/.env` (or the compose `.env`):
+```
+AUTH_PROVIDER=entra
+ENTRA_TENANT_ID=<directory-tenant-id>
+ENTRA_CLIENT_ID=<application-client-id>
+ENTRA_CLIENT_SECRET=<secret-value>
+ENTRA_REDIRECT_URI=https://your-host/api/auth/callback
+JWT_SECRET=<long-random-string>
+```
+With `docker compose`, these pass through from your shell / a `.env` next to
+`docker-compose.yml`.
+
+**c. That's it.** The login page then shows **Sign in with Microsoft** (the demo
+button is disabled). Flow: `GET /api/auth/login` → Entra → `GET /api/auth/callback`
+exchanges the code, validates the token, upserts the user, and mints the same
+session cookie the rest of the app already uses. The user id is the Entra `oid`.
+
+Notes:
+- The app requests the `openid profile email` scopes (no admin consent needed).
+- If the client and API are on **different sites** (not just different ports),
+  set the session cookie to `SameSite=None; Secure` — see `server/auth/session.js`.
+- Restrict who can sign in by configuring the app registration (single-tenant,
+  assignment required, etc.) in Entra.
 
 ## 6. GitHub Pages
 

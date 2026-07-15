@@ -7,6 +7,7 @@ const DEMO_USER = { id: 'demo-user', name: 'Demo User', email: 'demo@example.com
 
 export const sampleProvider = {
   id: 'sample',
+  kind: 'direct',
   async login() {
     await userRepository.upsert(DEMO_USER)
     return DEMO_USER

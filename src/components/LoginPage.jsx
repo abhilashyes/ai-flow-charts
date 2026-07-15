@@ -2,15 +2,21 @@ import { useState } from 'react'
 import { Share2, LogIn, Loader2 } from 'lucide-react'
 
 /**
- * Sample login page. The demo sign-in has no password — it's a placeholder until
- * Microsoft Entra is wired in (see server/auth/entraProvider.js). The "Sign in
- * with Microsoft" button marks that seam and is disabled for now.
+ * Login page. Adapts to the server's active auth provider:
+ *  - `entra`  → "Sign in with Microsoft" (full-page redirect to the OIDC flow).
+ *  - `sample` → "Sign in (demo)" (no password); Microsoft shown but disabled.
  */
-export default function LoginPage({ onSignIn }) {
+export default function LoginPage({ onSignIn, provider, loginUrl }) {
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => {
+    const p = new URLSearchParams(window.location.search).get('auth_error')
+    if (p) window.history.replaceState(null, '', window.location.pathname)
+    return p || ''
+  })
 
-  const signIn = async () => {
+  const entra = provider === 'entra'
+
+  const demoSignIn = async () => {
     setBusy(true)
     setError('')
     try {
@@ -20,6 +26,10 @@ export default function LoginPage({ onSignIn }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const msSignIn = () => {
+    if (loginUrl) window.location.href = loginUrl
   }
 
   return (
@@ -33,30 +43,43 @@ export default function LoginPage({ onSignIn }) {
           <p className="text-[13px] text-slate-400">Sign in to continue</p>
         </div>
 
+        {/* Microsoft Entra — primary when active, disabled otherwise. */}
         <button
-          onClick={signIn}
-          disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+          onClick={msSignIn}
+          disabled={!entra}
+          title={entra ? 'Sign in with your organization account' : 'Set AUTH_PROVIDER=entra to enable (see SETUP.md)'}
+          className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold transition ${
+            entra
+              ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              : 'cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-400'
+          }`}
+        >
+          <MicrosoftLogo /> Sign in with Microsoft
+          {!entra && (
+            <span className="ml-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">OFF</span>
+          )}
+        </button>
+
+        {/* Demo — primary when Entra is off, disabled when Entra is on. */}
+        <button
+          onClick={demoSignIn}
+          disabled={busy || entra}
+          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold transition ${
+            entra
+              ? 'cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-400'
+              : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60'
+          }`}
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
           Sign in (demo)
         </button>
 
-        <button
-          disabled
-          title="Configure Microsoft Entra to enable (see SETUP.md)"
-          className="mt-3 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-[14px] font-semibold text-slate-400"
-        >
-          <MicrosoftLogo /> Sign in with Microsoft
-          <span className="ml-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">SOON</span>
-        </button>
-
         {error && <p className="mt-3 text-center text-[12px] font-medium text-red-500">{error}</p>}
 
         <p className="mt-6 text-center text-[11px] leading-relaxed text-slate-400">
-          Demo sign-in uses a placeholder account. Wire Microsoft Entra in
-          <code className="mx-1 rounded bg-slate-100 px-1">server/auth/entraProvider.js</code>
-          to enable org sign-in.
+          {entra
+            ? 'Organization sign-in via Microsoft Entra.'
+            : 'Demo sign-in uses a placeholder account. Set AUTH_PROVIDER=entra (see SETUP.md) for Microsoft org sign-in.'}
         </p>
       </div>
     </div>

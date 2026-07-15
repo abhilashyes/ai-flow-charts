@@ -1,17 +1,19 @@
 /**
- * Auth provider interface.
+ * Auth provider interface. The session cookie is handled centrally
+ * (auth/session.js); a provider only identifies the user.
  *
- * An auth provider turns an inbound request into an authenticated user. The
- * session cookie itself is handled centrally (see auth/session.js), so a
- * provider only needs to identify the user.
+ * Every provider has:
+ *   id:   string
+ *   kind: 'direct' | 'redirect'
  *
- *   id: string
- *   async login(req) -> Promise<user>   // { id, name, email?, provider }
+ * Direct providers (e.g. `sample`) authenticate in one request:
+ *   async login(req) -> user            // { id, name, email?, provider }
  *
- * - The `sample` provider logs in a fixed demo user with no password.
- * - The `entra` provider (stub) would instead drive an OIDC redirect/callback
- *   flow and mint the same session on success.
+ * Redirect providers (e.g. `entra`) drive an OIDC/OAuth browser round-trip:
+ *   async authUrl(req, res) -> string   // authorize URL to redirect the browser to
+ *   async callback(req, res) -> user    // exchange the code, return the user
  *
- * Select the active provider with AUTH_PROVIDER (default: sample).
+ * Routes (routes/auth.js) branch on `kind`. Select the active provider with
+ * AUTH_PROVIDER (default: sample).
  */
 export {}

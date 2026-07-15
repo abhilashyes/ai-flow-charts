@@ -35,7 +35,8 @@ export default function App() {
 
   // Auth gate (only when a backend is configured).
   if (auth.authRequired && !auth.ready) return <FullScreenSpinner />
-  if (auth.authRequired && !auth.user) return <LoginPage onSignIn={auth.login} />
+  if (auth.authRequired && !auth.user)
+    return <LoginPage onSignIn={auth.login} provider={auth.provider} loginUrl={auth.loginUrl} />
 
   if (openId) {
     if (flow === undefined) return <FullScreenSpinner />

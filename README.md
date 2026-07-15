@@ -27,8 +27,9 @@ npm run preview  # preview the build
 For MongoDB-backed persistence and login (and an org deployment via
 `docker compose`), see **[SETUP.md](./SETUP.md)**. In short: the client picks its
 storage backend from `VITE_API_URL` (unset = localStorage; set = the REST API in
-`server/`), and auth is provider-based with a demo sign-in now and a documented
-**Microsoft Entra** seam (`server/auth/entraProvider.js`) for later.
+`server/`), and auth is provider-based: a demo sign-in for dev and a working
+**Microsoft Entra** (OIDC) provider you enable with env vars
+(`server/auth/entraProvider.js`).
 
 ## Features (Phase 1)
 - **25 / 75 resizable layout** — drag the divider between the input panel and the
@@ -63,5 +64,4 @@ src/
 ```
 
 ## Roadmap
-Wire Microsoft Entra sign-in (seam in place), PDF/PNG export, and
-responsive/mobile polish.
+PDF/PNG export and responsive/mobile polish.

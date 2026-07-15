@@ -23,7 +23,13 @@ services:
       MONGODB_URI: mongodb://mongo:27017/value-chain-mapper
       # CHANGE THIS in real deployments (any long random string).
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # "sample" (demo) or "entra". For entra, set the ENTRA_* vars below (e.g. in
+      # a .env file next to this compose file, or your orchestrator's secrets).
       AUTH_PROVIDER: ${AUTH_PROVIDER:-sample}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-}
+      ENTRA_REDIRECT_URI: ${ENTRA_REDIRECT_URI:-}
     ports:
       - '4000:4000'
 
