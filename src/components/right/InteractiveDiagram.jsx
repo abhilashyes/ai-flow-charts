@@ -45,6 +45,14 @@ function laneCenterYForIndex(lanes, i) {
   return tops[i] + (laneRows(lanes[i]) * LANE_ROW_H) / 2
 }
 
+// Model-space y for a shape in lane `i` at sub-row `row` (clamped to the lane's
+// rows). Lets multiple shapes stack vertically within one lane.
+function laneSubRowY(lanes, i, row) {
+  const { tops } = laneTops(lanes)
+  const r = Math.min(laneRows(lanes[i]) - 1, Math.max(0, row || 0))
+  return tops[i] + (r + 0.5) * LANE_ROW_H
+}
+
 // Nearest lane index for a dragged y, clamped to the existing lanes.
 function snapLaneIndexByY(lanes, y) {
   if (lanes.length === 0) return -1
@@ -195,6 +203,20 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
         {rows.map((r) => (
           <line key={r.id} x1={0} y1={y(r.top)} x2={size.w} y2={y(r.top)} stroke="#e2e8f0" strokeDasharray="4 5" />
         ))}
+        {/* faint sub-row dividers so stacking slots are visible in tall lanes */}
+        {rows.flatMap((r) =>
+          Array.from({ length: laneRows(r) - 1 }, (_, k) => (
+            <line
+              key={`${r.id}-sub${k}`}
+              x1={0}
+              y1={y(r.top + (k + 1) * LANE_ROW_H)}
+              x2={size.w}
+              y2={y(r.top + (k + 1) * LANE_ROW_H)}
+              stroke="#eef2f7"
+              strokeDasharray="2 6"
+            />
+          )),
+        )}
         <line x1={0} y1={endY} x2={size.w} y2={endY} stroke="#e2e8f0" strokeDasharray="4 5" />
       </svg>
 
@@ -380,6 +402,7 @@ function buildElements(processes, connectors) {
       id: String(p.id),
       shape: p.type === 'diamond' ? 'diamond' : p.type === 'customer' ? 'customer' : 'rectangle',
       laneId: p.laneId ?? null,
+      laneRow: p.laneRow ?? 0,
       label: `${p.abnormal ? '🚩 ' : ''}${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
     },
   }))
@@ -669,7 +692,7 @@ export default function InteractiveDiagram({
       const el = cy.getElementById(String(p.id))
       if (el.empty()) return
       const x = el.position('x')
-      const y = laneCenterYForIndex(lanes, order.get(p.laneId))
+      const y = laneSubRowY(lanes, order.get(p.laneId), p.laneRow ?? 0)
       el.position({ x, y })
       positionsRef.current.set(String(p.id), { x, y })
     })
@@ -761,26 +784,35 @@ export default function InteractiveDiagram({
       }
     })
     cy.on('dragfree', 'node', (evt) => {
-      // Snap X to the nearest timeline column; snap Y to the nearest swim lane
-      // (and persist the new lane assignment).
+      // Snap X to the nearest timeline column. For Y: if dropped inside the lane
+      // stack, snap to a lane sub-row (shapes stack within a lane); if dropped
+      // above or below the stack, leave it outside any lane (free Y).
       const node = evt.target
       const pos = node.position()
       const x = snapX(pos.x, timelineRef.current.length)
       const lanes = lanesRef.current
       let y = pos.y
-      let newLaneId
+      let assign // { laneId, laneRow } | undefined = no lanes, don't touch
       if (lanes.length > 0) {
-        const li = snapLaneIndexByY(lanes, pos.y)
-        y = laneCenterYForIndex(lanes, li)
-        newLaneId = lanes[li].id
+        const { total, tops } = laneTops(lanes)
+        if (pos.y < 0 || pos.y >= total) {
+          assign = { laneId: null, laneRow: 0 } // outside the lanes
+        } else {
+          const li = snapLaneIndexByY(lanes, pos.y)
+          const row = Math.floor((pos.y - tops[li]) / LANE_ROW_H)
+          assign = { laneId: lanes[li].id, laneRow: row }
+          y = laneSubRowY(lanes, li, row)
+        }
       }
       node.position({ x, y })
       positionsRef.current.set(node.id(), { x, y })
       if (!cy.destroyed()) restyleEdges(cy)
-      if (newLaneId !== undefined) {
+      if (assign) {
         const pid = Number(node.id())
         const proc = dataRef.current.processes.find((p) => p.id === pid)
-        if (proc && proc.laneId !== newLaneId) onAssignLaneRef.current?.(pid, newLaneId)
+        if (proc && (proc.laneId !== assign.laneId || (proc.laneRow ?? 0) !== assign.laneRow)) {
+          onAssignLaneRef.current?.(pid, assign.laneId, assign.laneRow)
+        }
       }
     })
 
@@ -884,6 +916,17 @@ export default function InteractiveDiagram({
           onAddLeft={onAddColumnStart ? handleAddColumnLeft : undefined}
           onRemove={onRemoveColumn}
         />
+      )}
+
+      {/* When there are no lanes, offer to add the first one (lanes are opt-in). */}
+      {onAddLane && lanes.length === 0 && (
+        <button
+          onClick={onAddLane}
+          title="Add a swim lane"
+          className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+        >
+          <Plus size={14} /> Swim lane
+        </button>
       )}
 
       {processes.length > 1 && (

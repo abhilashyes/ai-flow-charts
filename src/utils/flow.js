@@ -12,18 +12,10 @@ function defaultTimeline() {
   ]
 }
 
-// Default swim lanes (horizontal rows) for a diagram version. `rows` is the
-// lane height measured in shape-slots (drag-resizable, snaps to whole shapes).
-export function defaultLanes() {
-  return [
-    { id: crypto.randomUUID(), label: 'Lane 1', rows: 1 },
-    { id: crypto.randomUUID(), label: 'Lane 2', rows: 1 },
-  ]
-}
-
-// An empty diagram for a single version.
+// An empty diagram for a single version. Swim lanes are opt-in (start with none;
+// the user adds them if needed). `rows` on a lane is its height in shape-slots.
 export function makeVersionChain() {
-  return { processes: [], connectors: [], timeline: defaultTimeline(), lanes: defaultLanes() }
+  return { processes: [], connectors: [], timeline: defaultTimeline(), lanes: [] }
 }
 
 const now = () => new Date().toISOString()
@@ -49,16 +41,11 @@ export function makeBlankFlow(name = 'Untitled Value Chain') {
 // and Ideal start empty. Sample processes are spread across the two lanes.
 export function makeSampleFlow(name = 'Sample Value Chain') {
   const flow = makeBlankFlow(name)
-  const lanes = defaultLanes()
-  const processes = structuredClone(initialProcesses).map((p, i) => ({
-    ...p,
-    laneId: lanes[i % lanes.length].id,
-  }))
   flow.versions.current = {
-    processes,
+    processes: structuredClone(initialProcesses),
     connectors: structuredClone(initialConnectors),
     timeline: defaultTimeline(),
-    lanes,
+    lanes: [],
   }
   return flow
 }
@@ -84,6 +71,7 @@ function normalizeElement(el) {
     stdTimeUnit: rest.stdTimeUnit ?? DEFAULT_TIME_UNIT,
     idealTimeUnit: rest.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     laneId: rest.laneId ?? null,
+    laneRow: rest.laneRow ?? 0,
   }
 }
 
@@ -96,7 +84,7 @@ export function migrateFlowV1(oldChain) {
     processes: renumber(pick(oldChain.processes ?? [], mode), 'P'),
     connectors: renumber(pick(oldChain.connectors ?? [], mode), 'C'),
     timeline: oldChain.timeline ? structuredClone(oldChain.timeline) : defaultTimeline(),
-    lanes: defaultLanes(),
+    lanes: [],
   })
   return {
     id: oldChain.id ?? crypto.randomUUID(),
@@ -109,15 +97,19 @@ export function migrateFlowV1(oldChain) {
 }
 
 // Ensure a loaded flow has the current shape: every version has a `lanes` array
-// and every process has a `laneId` key. Backfills flows saved before lanes.
+// (empty by default) and every process has `laneId`/`laneRow` keys.
 export function normalizeFlow(flow) {
   if (!flow?.versions) return flow
   for (const key of Object.keys(flow.versions)) {
     const v = flow.versions[key]
     if (!v) continue
-    if (!Array.isArray(v.lanes)) v.lanes = defaultLanes()
+    if (!Array.isArray(v.lanes)) v.lanes = []
     else v.lanes = v.lanes.map((l) => (l.rows ? l : { ...l, rows: 1 })) // backfill height
-    v.processes = (v.processes ?? []).map((p) => (p.laneId === undefined ? { ...p, laneId: null } : p))
+    v.processes = (v.processes ?? []).map((p) => ({
+      ...p,
+      laneId: p.laneId ?? null,
+      laneRow: p.laneRow ?? 0,
+    }))
   }
   return flow
 }

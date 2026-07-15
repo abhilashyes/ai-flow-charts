@@ -182,6 +182,7 @@ export function useFlowEditor(initialFlow) {
         idealRes: Number(values.idealRes),
         abnormal: Boolean(values.abnormal),
         laneId: values.laneId || null,
+        laneRow: 0,
       }
       const processes = renumber([...version.processes, created], 'P')
       commit({ ...version, processes })
@@ -194,23 +195,25 @@ export function useFlowEditor(initialFlow) {
     (id, values) => {
       commit({
         ...version,
-        processes: version.processes.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                name: values.name.trim(),
-                type: values.type,
-                stdTime: Number(values.stdTime),
-                stdTimeUnit: values.stdTimeUnit || DEFAULT_TIME_UNIT,
-                idealTime: Number(values.idealTime),
-                idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
-                stdRes: Number(values.stdRes),
-                idealRes: Number(values.idealRes),
-                abnormal: Boolean(values.abnormal),
-                laneId: values.laneId || null,
-              }
-            : p,
-        ),
+        processes: version.processes.map((p) => {
+          if (p.id !== id) return p
+          const laneId = values.laneId || null
+          return {
+            ...p,
+            name: values.name.trim(),
+            type: values.type,
+            stdTime: Number(values.stdTime),
+            stdTimeUnit: values.stdTimeUnit || DEFAULT_TIME_UNIT,
+            idealTime: Number(values.idealTime),
+            idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
+            stdRes: Number(values.stdRes),
+            idealRes: Number(values.idealRes),
+            abnormal: Boolean(values.abnormal),
+            laneId,
+            // keep the sub-row when the lane is unchanged; reset when it changes
+            laneRow: laneId === p.laneId ? p.laneRow ?? 0 : 0,
+          }
+        }),
       })
       toast(`${version.processes.find((p) => p.id === id)?.refNum ?? 'Process'} updated`)
     },
@@ -269,13 +272,14 @@ export function useFlowEditor(initialFlow) {
     [version, commit],
   )
 
-  // Assign a process to a swim lane (used by drag-to-lane). History-tracked.
+  // Assign a process to a swim lane + sub-row (used by drag). null lane = outside
+  // any lane (free position). History-tracked.
   const setProcessLane = useCallback(
-    (processId, laneId) => {
+    (processId, laneId, laneRow = 0) => {
       commit({
         ...version,
         processes: version.processes.map((p) =>
-          p.id === processId ? { ...p, laneId: laneId || null } : p,
+          p.id === processId ? { ...p, laneId: laneId ?? null, laneRow: laneId ? laneRow : 0 } : p,
         ),
       })
     },
