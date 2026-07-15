@@ -15,3 +15,15 @@ export function generateRefNum(prefix, existingItems) {
 export function nextId(items) {
   return items.reduce((max, item) => Math.max(max, item.id), 0) + 1
 }
+
+/**
+ * Reassign every item's `refNum` to a contiguous sequence by array order
+ * (e.g. "P" -> P01, P02, P03 …). Keeps ref numbers gap-free after a delete.
+ * Returns a new array; element `id`s (used by connector endpoints) are untouched.
+ */
+export function renumber(items, prefix) {
+  return items.map((item, i) => ({
+    ...item,
+    refNum: `${prefix}${String(i + 1).padStart(2, '0')}`,
+  }))
+}

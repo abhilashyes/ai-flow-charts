@@ -2,18 +2,19 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import ConnectorList from './ConnectorList'
 import ConnectorForm from './ConnectorForm'
+import { VERSION_LABEL } from '../../utils/constants'
 
-export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
+export default function ConnectorsTab({ vc }) {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null) // connector being edited
-  const connectors = vc.chain.connectors.filter((c) => c.mode === editMode)
-  const processMap = new Map(vc.chain.processes.map((p) => [p.id, p]))
+  const connectors = vc.connectors
+  const processMap = new Map(vc.processes.map((p) => [p.id, p]))
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-3 pb-2 pt-3">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          {editModeLabel} connectors ({connectors.length})
+          {VERSION_LABEL[vc.activeVersion]} connectors ({connectors.length})
         </span>
         <button
           onClick={() => setShowForm(true)}
@@ -36,9 +37,8 @@ export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
 
       {showForm && (
         <ConnectorForm
-          connectors={vc.chain.connectors}
-          processes={vc.chain.processes}
-          editMode={editMode}
+          connectors={connectors}
+          processes={vc.processes}
           onSubmit={vc.addConnector}
           onClose={() => setShowForm(false)}
         />
@@ -46,9 +46,8 @@ export default function ConnectorsTab({ vc, editMode, editModeLabel }) {
 
       {editing && (
         <ConnectorForm
-          connectors={vc.chain.connectors}
-          processes={vc.chain.processes}
-          editMode={editMode}
+          connectors={connectors}
+          processes={vc.processes}
           initial={editing}
           onSubmit={(values) => vc.editConnector(editing.id, values)}
           onClose={() => setEditing(null)}

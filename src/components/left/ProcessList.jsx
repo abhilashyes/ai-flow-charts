@@ -1,4 +1,5 @@
 import { Square, Diamond, UserRound, Pencil, Trash2, Clock, Users } from 'lucide-react'
+import { formatTime } from '../../utils/time'
 
 export default function ProcessList({ processes, selected, onSelect, onEdit, onDelete }) {
   if (processes.length === 0) {
@@ -55,9 +56,9 @@ export default function ProcessList({ processes, selected, onSelect, onEdit, onD
             </div>
             <div className="mt-1.5 flex gap-3 pl-1 text-[11px] text-slate-500">
               <span className="flex items-center gap-1">
-                <Clock size={11} /> {p.stdTime}m
+                <Clock size={11} /> {formatTime(p.stdTime, p.stdTimeUnit)}
                 <span className="text-slate-300">/</span>
-                <span className="text-emerald-600">{p.idealTime}m</span>
+                <span className="text-emerald-600">{formatTime(p.idealTime, p.idealTimeUnit)}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Users size={11} /> {p.stdRes}

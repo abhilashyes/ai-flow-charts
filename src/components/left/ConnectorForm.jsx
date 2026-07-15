@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Modal, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
-import { CONNECTOR_TYPES } from '../../utils/constants'
+import { CONNECTOR_TYPES, DEFAULT_TIME_UNIT } from '../../utils/constants'
 import { CONVEYANCE } from '../../utils/conveyance'
 import { generateRefNum } from '../../utils/refnum'
 import { validateConnector, hasErrors } from '../../utils/validation'
+import { TimeRow } from './ProcessForm'
 
-export default function ConnectorForm({ connectors, processes, editMode, onSubmit, onClose, initial }) {
+export default function ConnectorForm({ connectors, processes, onSubmit, onClose, initial }) {
   const isEdit = Boolean(initial)
   const refNum = isEdit ? initial.refNum : generateRefNum('C', connectors)
-  // Only processes from the mode we're editing can be connected.
-  const options = processes.filter((p) => p.mode === editMode)
+  // Any two processes in the active version can be connected.
+  const options = processes
 
   const [values, setValues] = useState(() => ({
     source: initial?.source ?? '',
@@ -17,7 +18,9 @@ export default function ConnectorForm({ connectors, processes, editMode, onSubmi
     type: initial?.type ?? 'process-flow',
     modeOfConveyance: initial?.modeOfConveyance ?? 'Email',
     stdTime: initial?.stdTime ?? '',
+    stdTimeUnit: initial?.stdTimeUnit ?? DEFAULT_TIME_UNIT,
     idealTime: initial?.idealTime ?? '',
+    idealTimeUnit: initial?.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
   }))
@@ -37,12 +40,12 @@ export default function ConnectorForm({ connectors, processes, editMode, onSubmi
   return (
     <Modal
       title={isEdit ? 'Edit Connector' : 'Add Connector'}
-      subtitle={isEdit ? `${refNum} · ${editMode}` : `New ${editMode} connector · ${refNum}`}
+      subtitle={isEdit ? refNum : `New connector · ${refNum}`}
       onClose={onClose}
     >
       {options.length < 2 ? (
         <div className="rounded-md bg-amber-50 px-3 py-4 text-center text-[13px] text-amber-700">
-          You need at least two <b>{editMode}</b> processes before adding a connector.
+          You need at least two processes in this version before adding a connector.
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -83,9 +86,24 @@ export default function ConnectorForm({ connectors, processes, editMode, onSubmi
             </SelectField>
           </div>
 
+          <TimeRow
+            label="Standard Time"
+            value={values.stdTime}
+            unit={values.stdTimeUnit}
+            error={errors.stdTime}
+            onValue={set('stdTime')}
+            onUnit={set('stdTimeUnit')}
+          />
+          <TimeRow
+            label="Ideal Time"
+            value={values.idealTime}
+            unit={values.idealTimeUnit}
+            error={errors.idealTime}
+            onValue={set('idealTime')}
+            onUnit={set('idealTimeUnit')}
+          />
+
           <div className="grid grid-cols-2 gap-3">
-            <NumberField label="Standard Time" value={values.stdTime} onChange={set('stdTime')} error={errors.stdTime} suffix="min" />
-            <NumberField label="Ideal Time" value={values.idealTime} onChange={set('idealTime')} error={errors.idealTime} suffix="min" />
             <NumberField label="Standard Resources" value={values.stdRes} onChange={set('stdRes')} error={errors.stdRes} />
             <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
           </div>

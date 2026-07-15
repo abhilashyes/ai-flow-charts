@@ -1,15 +1,28 @@
-// Display / editing modes for the value chain.
-export const MODES = {
-  STANDARD: 'standard',
-  IDEAL: 'ideal',
-  COMPARISON: 'comparison',
-}
-
-export const MODE_OPTIONS = [
-  { value: MODES.STANDARD, label: 'Standard', help: 'Edit and view the as-is value chain.' },
-  { value: MODES.IDEAL, label: 'Ideal', help: 'Edit and view the to-be / target value chain.' },
-  { value: MODES.COMPARISON, label: 'Comparison', help: 'View Standard and Ideal side by side.' },
+// The three independently-editable versions every flow carries.
+export const VERSIONS = [
+  { value: 'current', label: 'Current', help: 'The as-is value chain.' },
+  { value: 'target', label: 'Target', help: 'The near-term to-be value chain.' },
+  { value: 'ideal', label: 'Ideal', help: 'The theoretical best-case value chain.' },
 ]
+
+export const VERSION_LABEL = Object.fromEntries(VERSIONS.map((v) => [v.value, v.label]))
+
+// Units a time value can be captured in. `toSeconds` normalizes for totals.
+export const TIME_UNITS = [
+  { value: 's', label: 'Seconds', short: 's', toSeconds: 1 },
+  { value: 'min', label: 'Minutes', short: 'min', toSeconds: 60 },
+  { value: 'hr', label: 'Hours', short: 'hr', toSeconds: 3600 },
+  { value: 'day', label: 'Days', short: 'd', toSeconds: 86400 },
+  { value: 'wk', label: 'Weeks', short: 'wk', toSeconds: 604800 },
+  { value: 'mo', label: 'Months', short: 'mo', toSeconds: 2592000 },
+]
+
+export const DEFAULT_TIME_UNIT = 'min'
+
+const UNIT_BY_VALUE = new Map(TIME_UNITS.map((u) => [u.value, u]))
+export function timeUnit(value) {
+  return UNIT_BY_VALUE.get(value) ?? UNIT_BY_VALUE.get(DEFAULT_TIME_UNIT)
+}
 
 // Process node shapes.
 export const PROCESS_TYPES = [
@@ -39,5 +52,5 @@ export const CONVEYANCE_MODES = [
 export const TABS = {
   PROCESSES: 'processes',
   CONNECTORS: 'connectors',
-  SETTINGS: 'settings',
+  JSON: 'json',
 }

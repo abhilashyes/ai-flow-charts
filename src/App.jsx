@@ -12,13 +12,13 @@ export default function App() {
   const [openId, setOpenId] = useState(null)
 
   if (openId) {
-    const chain = getFlow(openId)
+    const flow = getFlow(openId)
     // Guard against a stale/deleted id: fall back to Home.
-    if (!chain) {
+    if (!flow) {
       setOpenId(null)
       return null
     }
-    return <Editor key={openId} initialChain={chain} onBack={() => setOpenId(null)} />
+    return <Editor key={openId} initialFlow={flow} onBack={() => setOpenId(null)} />
   }
 
   return <HomeScreen onOpen={setOpenId} />

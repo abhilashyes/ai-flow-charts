@@ -3,6 +3,7 @@ import cytoscape from 'cytoscape'
 import { Sparkles, Plus, X } from 'lucide-react'
 import { routeGraph } from '../../utils/elkLayout'
 import { conveyanceOf } from '../../utils/conveyance'
+import { formatTime } from '../../utils/time'
 
 // Width of one timeline column in flow (model) coordinates — a little wider than
 // a shape (rectangles are 136 wide) so a shape sits comfortably in a column.
@@ -28,6 +29,7 @@ function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onRemove }) {
   const w = COLUMN_W * vp.zoom
   const cols = timeline.map((c, i) => ({ ...c, x: vp.x + i * w }))
   const endX = vp.x + timeline.length * w
+  const editable = Boolean(onLabel) // read-only in comparison panes
 
   return (
     <>
@@ -39,17 +41,23 @@ function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onRemove }) {
         <line x1={endX} y1={0} x2={endX} y2={size.h} stroke="#cbd5e1" strokeDasharray="4 5" />
       </svg>
 
-      {/* Header row with editable column labels */}
+      {/* Header row with (optionally editable) column labels */}
       <div className="absolute inset-x-0 top-0 z-10 h-8 overflow-hidden border-b border-slate-200 bg-white/85 backdrop-blur-sm">
         {cols.map((c) => (
           <div key={c.id} className="group absolute top-0 flex h-8 items-center" style={{ left: c.x, width: w }}>
-            <input
-              value={c.label}
-              onChange={(e) => onLabel(c.id, e.target.value)}
-              placeholder="Label"
-              className="mx-1 h-6 w-full min-w-0 rounded bg-transparent px-1 text-center text-[12px] font-semibold text-slate-600 outline-none transition hover:bg-slate-100 focus:bg-white focus:ring-1 focus:ring-blue-300"
-            />
-            {timeline.length > 1 && (
+            {editable ? (
+              <input
+                value={c.label}
+                onChange={(e) => onLabel(c.id, e.target.value)}
+                placeholder="Label"
+                className="mx-1 h-6 w-full min-w-0 rounded bg-transparent px-1 text-center text-[12px] font-semibold text-slate-600 outline-none transition hover:bg-slate-100 focus:bg-white focus:ring-1 focus:ring-blue-300"
+              />
+            ) : (
+              <span className="mx-1 w-full truncate px-1 text-center text-[12px] font-semibold text-slate-600">
+                {c.label}
+              </span>
+            )}
+            {editable && timeline.length > 1 && (
               <button
                 onClick={() => onRemove(c.id)}
                 title="Remove column"
@@ -60,14 +68,16 @@ function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onRemove }) {
             )}
           </div>
         ))}
-        <button
-          onClick={onAdd}
-          title="Add column"
-          className="absolute top-1 flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
-          style={{ left: endX + 4 }}
-        >
-          <Plus size={14} />
-        </button>
+        {editable && (
+          <button
+            onClick={onAdd}
+            title="Add column"
+            className="absolute top-1 flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
+            style={{ left: endX + 4 }}
+          >
+            <Plus size={14} />
+          </button>
+        )}
       </div>
     </>
   )
@@ -183,16 +193,14 @@ const cyStyle = [
   },
 ]
 
-function buildElements(processes, connectors, mode) {
-  const timeKey = mode === 'ideal' ? 'idealTime' : 'stdTime'
-  const resKey = mode === 'ideal' ? 'idealRes' : 'stdRes'
+function buildElements(processes, connectors) {
   const ids = new Set(processes.map((p) => p.id))
 
   const nodes = processes.map((p) => ({
     data: {
       id: String(p.id),
       shape: p.type === 'diamond' ? 'diamond' : p.type === 'customer' ? 'customer' : 'rectangle',
-      label: `${p.refNum}  ${p.name}\n${p[timeKey]}m · ${p[resKey]} res`,
+      label: `${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
     },
   }))
 
@@ -207,7 +215,7 @@ function buildElements(processes, connectors, mode) {
         etype: c.type,
         srcSide: c.srcSide || 'auto',
         tgtSide: c.tgtSide || 'auto',
-        label: `${conveyanceOf(c.modeOfConveyance).glyph}\n${c[timeKey]}m`,
+        label: `${conveyanceOf(c.modeOfConveyance).glyph}\n${formatTime(c.stdTime, c.stdTimeUnit)}`,
       },
     }))
 
@@ -413,7 +421,6 @@ function syncGraph(cy, nodes, edges, positions) {
 export default function InteractiveDiagram({
   processes,
   connectors,
-  mode,
   selected,
   onSelect,
   timeline,
@@ -438,8 +445,8 @@ export default function InteractiveDiagram({
   timelineRef.current = timeline
 
   const { nodes, edges } = useMemo(
-    () => buildElements(processes, connectors, mode),
-    [processes, connectors, mode],
+    () => buildElements(processes, connectors),
+    [processes, connectors],
   )
   const dataRef = useRef({ processes, connectors, nodes, edges })
   dataRef.current = { processes, connectors, nodes, edges }

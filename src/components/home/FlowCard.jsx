@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Square, Workflow, Clock, MoreVertical, Copy, Pencil, Trash2 } from 'lucide-react'
+import { Square, Workflow, Clock, Layers, MoreVertical, Copy, Pencil, Trash2 } from 'lucide-react'
+import { VERSIONS } from '../../utils/constants'
 
 function relativeTime(iso) {
   if (!iso) return ''
@@ -29,8 +30,10 @@ function MiniPreview() {
 
 export default function FlowCard({ flow, onOpen, onRename, onDuplicate, onDelete }) {
   const [menu, setMenu] = useState(false)
-  const procCount = flow.processes?.length ?? 0
-  const connCount = flow.connectors?.length ?? 0
+  // Counts reflect the Current version; the flow always carries all three.
+  const current = flow.versions?.current ?? { processes: [], connectors: [] }
+  const procCount = current.processes?.length ?? 0
+  const connCount = current.connectors?.length ?? 0
 
   return (
     <div
@@ -46,7 +49,18 @@ export default function FlowCard({ flow, onOpen, onRename, onDuplicate, onDelete
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="flex items-start justify-between gap-2">
           <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-slate-800">{flow.name}</h3>
-          <div className="relative">
+          <div className="flex items-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate(flow.id)
+              }}
+              title="Duplicate flow"
+              className="rounded p-1 text-slate-400 opacity-0 transition hover:bg-slate-100 hover:text-blue-600 group-hover:opacity-100"
+            >
+              <Copy size={15} />
+            </button>
+            <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -70,14 +84,24 @@ export default function FlowCard({ flow, onOpen, onRename, onDuplicate, onDelete
                 </div>
               </>
             )}
+            </div>
           </div>
         </div>
 
+        <div className="flex items-center gap-1.5">
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500"
+            title="Current, Target and Ideal versions"
+          >
+            <Layers size={11} /> {VERSIONS.length} versions
+          </span>
+        </div>
+
         <div className="mt-auto flex items-center gap-3 text-[11px] text-slate-500">
-          <span className="flex items-center gap-1" title="Processes">
+          <span className="flex items-center gap-1" title="Processes (Current)">
             <Square size={12} className="text-blue-500" /> {procCount}
           </span>
-          <span className="flex items-center gap-1" title="Connectors">
+          <span className="flex items-center gap-1" title="Connectors (Current)">
             <Workflow size={12} className="text-violet-500" /> {connCount}
           </span>
           <span className="ml-auto flex items-center gap-1 text-slate-400">

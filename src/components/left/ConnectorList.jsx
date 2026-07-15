@@ -1,5 +1,6 @@
 import { Pencil, Trash2, ArrowRight, Clock } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
+import { formatTime } from '../../utils/time'
 
 const SIDES = [
   ['auto', 'Auto'],
@@ -77,9 +78,9 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
                 <ConvIcon size={13} />
               </span>
               <span className="flex items-center gap-1">
-                <Clock size={11} /> {c.stdTime}m
+                <Clock size={11} /> {formatTime(c.stdTime, c.stdTimeUnit)}
                 <span className="text-slate-300">/</span>
-                <span className="text-emerald-600">{c.idealTime}m</span>
+                <span className="text-emerald-600">{formatTime(c.idealTime, c.idealTimeUnit)}</span>
               </span>
             </div>
             <div

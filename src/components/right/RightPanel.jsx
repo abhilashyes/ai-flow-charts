@@ -1,36 +1,19 @@
 import InteractiveDiagram from './InteractiveDiagram'
-import ComparisonView from './ComparisonView'
-import { MODES } from '../../utils/constants'
+import { VERSION_LABEL } from '../../utils/constants'
 
 export default function RightPanel({ vc }) {
-  const { chain, currentMode, selected, setSelected } = vc
-
-  if (currentMode === MODES.COMPARISON) {
-    return (
-      <div className="flex h-full flex-col">
-        <ViewHeader label="Comparison — Standard vs Ideal" />
-        <div className="min-h-0 flex-1">
-          <ComparisonView chain={chain} selected={selected} onSelect={setSelected} />
-        </div>
-      </div>
-    )
-  }
-
-  const mode = currentMode // 'standard' | 'ideal'
-  const processes = chain.processes.filter((p) => p.mode === mode)
-  const connectors = chain.connectors.filter((c) => c.mode === mode)
-  const label = mode === 'ideal' ? 'Ideal Value Chain' : 'Standard Value Chain'
-
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader label={label} hint="Scroll to zoom · drag background to pan · click an element to select" />
+      <ViewHeader
+        label={`${VERSION_LABEL[vc.activeVersion]} Value Chain`}
+        hint="Scroll to zoom · drag background to pan · click an element to select"
+      />
       <div className="min-h-0 flex-1 bg-slate-50">
         <InteractiveDiagram
-          processes={processes}
-          connectors={connectors}
-          mode={mode}
-          selected={selected}
-          onSelect={setSelected}
+          processes={vc.processes}
+          connectors={vc.connectors}
+          selected={vc.selected}
+          onSelect={vc.setSelected}
           timeline={vc.timeline}
           onColumnLabel={vc.setColumnLabel}
           onAddColumn={vc.addColumn}

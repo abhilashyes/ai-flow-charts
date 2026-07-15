@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { Modal, TextField, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
-import { PROCESS_TYPES } from '../../utils/constants'
+import { PROCESS_TYPES, TIME_UNITS, DEFAULT_TIME_UNIT } from '../../utils/constants'
 import { generateRefNum } from '../../utils/refnum'
 import { validateProcess, hasErrors } from '../../utils/validation'
 
-export default function ProcessForm({ processes, editMode, onSubmit, onClose, initial }) {
+export default function ProcessForm({ processes, onSubmit, onClose, initial }) {
   const isEdit = Boolean(initial)
   const refNum = isEdit ? initial.refNum : generateRefNum('P', processes)
   const [values, setValues] = useState(() => ({
     name: initial?.name ?? '',
     type: initial?.type ?? 'rectangle',
     stdTime: initial?.stdTime ?? '',
+    stdTimeUnit: initial?.stdTimeUnit ?? DEFAULT_TIME_UNIT,
     idealTime: initial?.idealTime ?? '',
+    idealTimeUnit: initial?.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
   }))
@@ -31,7 +33,7 @@ export default function ProcessForm({ processes, editMode, onSubmit, onClose, in
   return (
     <Modal
       title={isEdit ? 'Edit Process' : 'Add Process'}
-      subtitle={isEdit ? `${refNum} · ${editMode}` : `New ${editMode} process · ${refNum}`}
+      subtitle={isEdit ? refNum : `New process · ${refNum}`}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -55,9 +57,24 @@ export default function ProcessForm({ processes, editMode, onSubmit, onClose, in
           autoFocus
         />
 
+        <TimeRow
+          label="Standard Time"
+          value={values.stdTime}
+          unit={values.stdTimeUnit}
+          error={errors.stdTime}
+          onValue={set('stdTime')}
+          onUnit={set('stdTimeUnit')}
+        />
+        <TimeRow
+          label="Ideal Time"
+          value={values.idealTime}
+          unit={values.idealTimeUnit}
+          error={errors.idealTime}
+          onValue={set('idealTime')}
+          onUnit={set('idealTimeUnit')}
+        />
+
         <div className="grid grid-cols-2 gap-3">
-          <NumberField label="Standard Time" value={values.stdTime} onChange={set('stdTime')} error={errors.stdTime} suffix="min" />
-          <NumberField label="Ideal Time" value={values.idealTime} onChange={set('idealTime')} error={errors.idealTime} suffix="min" />
           <NumberField label="Standard Resources" value={values.stdRes} onChange={set('stdRes')} error={errors.stdRes} />
           <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
         </div>
@@ -65,5 +82,21 @@ export default function ProcessForm({ processes, editMode, onSubmit, onClose, in
         <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Process' : 'Save Process'} />
       </form>
     </Modal>
+  )
+}
+
+// A time value paired with its own unit dropdown (units are independent).
+export function TimeRow({ label, value, unit, error, onValue, onUnit }) {
+  return (
+    <div className="grid grid-cols-2 items-start gap-3">
+      <NumberField label={label} value={value} onChange={onValue} error={error} />
+      <SelectField label="Unit" value={unit} onChange={onUnit}>
+        {TIME_UNITS.map((u) => (
+          <option key={u.value} value={u.value}>
+            {u.label}
+          </option>
+        ))}
+      </SelectField>
+    </div>
   )
 }

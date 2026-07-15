@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import ProcessList from './ProcessList'
 import ProcessForm from './ProcessForm'
+import { VERSION_LABEL } from '../../utils/constants'
 
-export default function ProcessesTab({ vc, editMode, editModeLabel }) {
+export default function ProcessesTab({ vc }) {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null) // process being edited
-  const processes = vc.chain.processes.filter((p) => p.mode === editMode)
+  const processes = vc.processes
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-3 pb-2 pt-3">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          {editModeLabel} processes ({processes.length})
+          {VERSION_LABEL[vc.activeVersion]} processes ({processes.length})
         </span>
         <button
           onClick={() => setShowForm(true)}
@@ -33,8 +34,7 @@ export default function ProcessesTab({ vc, editMode, editModeLabel }) {
 
       {showForm && (
         <ProcessForm
-          processes={vc.chain.processes}
-          editMode={editMode}
+          processes={processes}
           onSubmit={vc.addProcess}
           onClose={() => setShowForm(false)}
         />
@@ -42,8 +42,7 @@ export default function ProcessesTab({ vc, editMode, editModeLabel }) {
 
       {editing && (
         <ProcessForm
-          processes={vc.chain.processes}
-          editMode={editMode}
+          processes={processes}
           initial={editing}
           onSubmit={(values) => vc.editProcess(editing.id, values)}
           onClose={() => setEditing(null)}

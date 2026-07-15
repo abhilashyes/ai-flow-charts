@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { listFlows, saveFlow, deleteFlow, getFlow, ensureSeeded } from '../utils/store'
-import { makeBlankChain, cloneChain } from '../utils/flow'
+import { makeBlankFlow, cloneFlow } from '../utils/flow'
 
 // Home-screen state: the list of saved flows plus create/rename/duplicate/delete
 // actions. Reads from and writes to the localStorage-backed flow store.
@@ -14,10 +14,10 @@ export function useFlows() {
 
   const createFlow = useCallback(
     (name) => {
-      const chain = makeBlankChain(name?.trim() || 'Untitled Value Chain')
-      saveFlow(chain)
+      const flow = makeBlankFlow(name?.trim() || 'Untitled Value Chain')
+      saveFlow(flow)
       setFlows(listFlows())
-      return chain.id
+      return flow.id
     },
     [],
   )
@@ -30,9 +30,9 @@ export function useFlows() {
   }, [])
 
   const duplicateFlow = useCallback((id) => {
-    const chain = getFlow(id)
-    if (!chain) return
-    const copy = cloneChain(chain)
+    const flow = getFlow(id)
+    if (!flow) return
+    const copy = cloneFlow(flow)
     saveFlow(copy)
     setFlows(listFlows())
     return copy.id

@@ -1,10 +1,10 @@
-import { Boxes, Workflow, Settings } from 'lucide-react'
+import { Boxes, Workflow, Braces } from 'lucide-react'
 import { TABS } from '../../utils/constants'
 
 const ITEMS = [
   { id: TABS.PROCESSES, label: 'Processes', Icon: Boxes },
   { id: TABS.CONNECTORS, label: 'Connectors', Icon: Workflow },
-  { id: TABS.SETTINGS, label: 'Settings', Icon: Settings },
+  { id: TABS.JSON, label: 'JSON', Icon: Braces },
 ]
 
 export default function TabNavigation({ active, onChange }) {
