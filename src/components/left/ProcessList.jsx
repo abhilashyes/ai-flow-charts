@@ -1,7 +1,14 @@
+import { useEffect, useRef } from 'react'
 import { Square, Diamond, UserRound, Pencil, Trash2, Clock, Users, Flag } from 'lucide-react'
 import { formatTime } from '../../utils/time'
 
 export default function ProcessList({ processes, selected, onSelect, onEdit, onDelete }) {
+  const selRef = useRef(null)
+  // Scroll the selected tile into view (e.g. when selected from the diagram).
+  useEffect(() => {
+    selRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
   if (processes.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[12px] text-slate-400">
@@ -24,6 +31,7 @@ export default function ProcessList({ processes, selected, onSelect, onEdit, onD
         return (
           <div
             key={p.id}
+            ref={isSel ? selRef : undefined}
             onClick={() => onSelect({ kind: 'process', id: p.id })}
             className={`group cursor-pointer rounded-lg border p-2.5 transition ${
               isSel ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-slate-200 bg-white hover:border-slate-300'

@@ -17,12 +17,14 @@ export default function RightPanel({ vc }) {
           timeline={vc.timeline}
           onColumnLabel={vc.setColumnLabel}
           onAddColumn={vc.addColumn}
+          onAddColumnStart={vc.addColumnStart}
           onRemoveColumn={vc.removeColumn}
           lanes={vc.lanes}
           onLaneLabel={vc.setLaneLabel}
           onAddLane={vc.addLane}
           onRemoveLane={vc.removeLane}
           onAssignLane={vc.setProcessLane}
+          onEditRequest={vc.requestEdit}
         />
       </div>
     </div>

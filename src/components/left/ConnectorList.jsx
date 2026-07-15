@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Pencil, Trash2, ArrowRight, Clock, Flag } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
@@ -11,6 +12,11 @@ const SIDES = [
 ]
 
 export default function ConnectorList({ connectors, processMap, selected, onSelect, onEdit, onDelete, onUpdate }) {
+  const selRef = useRef(null)
+  useEffect(() => {
+    selRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
   if (connectors.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[12px] text-slate-400">
@@ -31,6 +37,7 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
         return (
           <div
             key={c.id}
+            ref={isSel ? selRef : undefined}
             onClick={() => onSelect({ kind: 'connector', id: c.id })}
             className={`group cursor-pointer rounded-lg border p-2.5 transition ${
               isSel ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-slate-200 bg-white hover:border-slate-300'

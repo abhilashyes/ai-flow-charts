@@ -39,9 +39,10 @@ function snapLaneIndex(y, count) {
  * Cytoscape viewport so columns pan and zoom with the diagram. Column labels are
  * editable; columns can be added/removed.
  */
-function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onRemove }) {
+function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onAddLeft, onRemove }) {
   const w = COLUMN_W * vp.zoom
   const cols = timeline.map((c, i) => ({ ...c, x: vp.x + i * w }))
+  const startX = vp.x
   const endX = vp.x + timeline.length * w
   const editable = Boolean(onLabel) // read-only in comparison panes
 
@@ -82,10 +83,20 @@ function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onRemove }) {
             )}
           </div>
         ))}
+        {editable && onAddLeft && (
+          <button
+            onClick={onAddLeft}
+            title="Add column to the left"
+            className="absolute top-1 flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
+            style={{ left: Math.max(2, startX - 26) }}
+          >
+            <Plus size={14} />
+          </button>
+        )}
         {editable && (
           <button
             onClick={onAdd}
-            title="Add column"
+            title="Add column to the right"
             className="absolute top-1 flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
             style={{ left: endX + 4 }}
           >
@@ -513,12 +524,14 @@ export default function InteractiveDiagram({
   timeline,
   onColumnLabel,
   onAddColumn,
+  onAddColumnStart,
   onRemoveColumn,
   lanes = [],
   onLaneLabel,
   onAddLane,
   onRemoveLane,
   onAssignLane,
+  onEditRequest,
 }) {
   const containerRef = useRef(null)
   const cyRef = useRef(null)
@@ -539,6 +552,8 @@ export default function InteractiveDiagram({
   lanesRef.current = lanes
   const onAssignLaneRef = useRef(onAssignLane)
   onAssignLaneRef.current = onAssignLane
+  const onEditRequestRef = useRef(onEditRequest)
+  onEditRequestRef.current = onEditRequest
 
   const { nodes, edges } = useMemo(
     () => buildElements(processes, connectors),
@@ -637,10 +652,28 @@ export default function InteractiveDiagram({
       autoungrabify: false,
     })
     cyRef.current = cy
-    cy.on('tap', 'node', (evt) => onSelectRef.current?.({ kind: 'process', id: Number(evt.target.id()) }))
-    cy.on('tap', 'edge', (evt) => onSelectRef.current?.({ kind: 'connector', id: Number(evt.target.data('cid')) }))
+    // Manual double-tap detection (Cytoscape has no native double-click): a second
+    // tap on the same element within 300ms opens that tile's edit dialog.
+    const lastTap = { key: null, t: 0 }
+    const handleTap = (kind, id) => {
+      onSelectRef.current?.({ kind, id })
+      const key = `${kind}:${id}`
+      const now = Date.now()
+      if (lastTap.key === key && now - lastTap.t < 300) {
+        onEditRequestRef.current?.(kind, id)
+        lastTap.key = null
+      } else {
+        lastTap.key = key
+        lastTap.t = now
+      }
+    }
+    cy.on('tap', 'node', (evt) => handleTap('process', Number(evt.target.id())))
+    cy.on('tap', 'edge', (evt) => handleTap('connector', Number(evt.target.data('cid'))))
     cy.on('tap', (evt) => {
-      if (evt.target === cy) onSelectRef.current?.(null)
+      if (evt.target === cy) {
+        onSelectRef.current?.(null)
+        lastTap.key = null
+      }
     })
     cy.on('dragfree', 'node', (evt) => {
       // Snap X to the nearest timeline column; snap Y to the nearest swim lane
@@ -720,6 +753,22 @@ export default function InteractiveDiagram({
     if (cy && !cy.destroyed()) applySelection(cy)
   }, [selected, dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Add a timeline column on the LEFT: shift existing content right by one column
+  // so it stays aligned with its (now shifted) labels, then prepend the column.
+  const handleAddColumnLeft = () => {
+    const cy = cyRef.current
+    if (cy && !cy.destroyed()) {
+      cy.nodes().forEach((n) => {
+        const p = n.position()
+        const np = { x: p.x + COLUMN_W, y: p.y }
+        n.position(np)
+        positionsRef.current.set(n.id(), np)
+      })
+      restyleEdges(cy)
+    }
+    onAddColumnStart?.()
+  }
+
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
@@ -742,6 +791,7 @@ export default function InteractiveDiagram({
           timeline={timeline}
           onLabel={onColumnLabel}
           onAdd={onAddColumn}
+          onAddLeft={onAddColumnStart ? handleAddColumnLeft : undefined}
           onRemove={onRemoveColumn}
         />
       )}

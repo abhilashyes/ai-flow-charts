@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import ConnectorList from './ConnectorList'
 import ConnectorForm from './ConnectorForm'
@@ -9,6 +9,15 @@ export default function ConnectorsTab({ vc }) {
   const [editing, setEditing] = useState(null) // connector being edited
   const connectors = vc.connectors
   const processMap = new Map(vc.processes.map((p) => [p.id, p]))
+
+  // Open the edit dialog when a connector is double-clicked on the diagram.
+  const editReq = vc.editRequest
+  useEffect(() => {
+    if (editReq?.kind !== 'connector') return
+    const conn = connectors.find((c) => c.id === editReq.id)
+    if (conn) setEditing(conn)
+    vc.clearEditRequest()
+  }, [editReq]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-full flex-col">

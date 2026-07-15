@@ -21,6 +21,7 @@ export function useFlowEditor(initialFlow) {
   const [flow, setFlow] = useState(() => initialFlow ?? makeBlankFlow())
   const [activeVersion, setActiveVersion] = useState('current')
   const [selected, setSelected] = useState(null) // { kind: 'process'|'connector', id }
+  const [editRequest, setEditRequest] = useState(null) // { kind, id, nonce } — open a tile's edit dialog
   const [toasts, setToasts] = useState([])
 
   // Persist to the flow store on every change (localStorage upsert by id).
@@ -48,6 +49,10 @@ export function useFlowEditor(initialFlow) {
     setActiveVersion(v)
     setSelected(null)
   }, [])
+
+  // Ask the left panel to open a tile's edit dialog (from a diagram double-click).
+  const requestEdit = useCallback((kind, id) => setEditRequest({ kind, id, nonce: Date.now() }), [])
+  const clearEditRequest = useCallback(() => setEditRequest(null), [])
 
   // Rename the flow (lightweight, not part of undo history).
   const setName = useCallback((name) => {
@@ -82,6 +87,15 @@ export function useFlowEditor(initialFlow) {
         const timeline = v.timeline ?? []
         return { ...v, timeline: [...timeline, { id: crypto.randomUUID(), label: `Day ${timeline.length + 1}` }] }
       }),
+    [patchVersion],
+  )
+
+  const addColumnStart = useCallback(
+    () =>
+      patchVersion((v) => ({
+        ...v,
+        timeline: [{ id: crypto.randomUUID(), label: '' }, ...(v.timeline ?? [])],
+      })),
     [patchVersion],
   )
 
@@ -339,6 +353,9 @@ export function useFlowEditor(initialFlow) {
     lanes: version.lanes ?? [],
     selected,
     setSelected,
+    editRequest,
+    requestEdit,
+    clearEditRequest,
     toasts,
     toast,
     dismissToast,
@@ -352,6 +369,7 @@ export function useFlowEditor(initialFlow) {
     setName,
     setColumnLabel,
     addColumn,
+    addColumnStart,
     removeColumn,
     setLaneLabel,
     addLane,

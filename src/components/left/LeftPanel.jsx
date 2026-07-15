@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import TabNavigation from './TabNavigation'
 import ProcessesTab from './ProcessesTab'
 import ConnectorsTab from './ConnectorsTab'
@@ -7,6 +7,14 @@ import { TABS } from '../../utils/constants'
 
 export default function LeftPanel({ vc }) {
   const [tab, setTab] = useState(TABS.PROCESSES)
+
+  // When something is selected on the diagram, jump to its table so the matching
+  // tile is visible and highlighted.
+  const selectedKind = vc.selected?.kind
+  useEffect(() => {
+    if (selectedKind === 'process') setTab(TABS.PROCESSES)
+    else if (selectedKind === 'connector') setTab(TABS.CONNECTORS)
+  }, [selectedKind, vc.selected])
 
   return (
     <div className="flex h-full flex-col bg-white">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import ProcessList from './ProcessList'
 import ProcessForm from './ProcessForm'
@@ -8,6 +8,15 @@ export default function ProcessesTab({ vc }) {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null) // process being edited
   const processes = vc.processes
+
+  // Open the edit dialog when a process is double-clicked on the diagram.
+  const editReq = vc.editRequest
+  useEffect(() => {
+    if (editReq?.kind !== 'process') return
+    const proc = processes.find((p) => p.id === editReq.id)
+    if (proc) setEditing(proc)
+    vc.clearEditRequest()
+  }, [editReq]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-full flex-col">
