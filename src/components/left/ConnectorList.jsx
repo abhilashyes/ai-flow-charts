@@ -1,4 +1,4 @@
-import { Pencil, Trash2, ArrowRight, Clock } from 'lucide-react'
+import { Pencil, Trash2, ArrowRight, Clock, Flag } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
 
@@ -47,6 +47,11 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
               <span className="flex-1 truncate text-[12px] font-medium text-slate-600">
                 {src?.refNum ?? '?'} <ArrowRight size={11} className="inline" /> {tgt?.refNum ?? '?'}
               </span>
+              {c.abnormal && (
+                <span title="Abnormality flagged" className="shrink-0">
+                  <Flag size={13} className="fill-red-500 text-red-500" />
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()

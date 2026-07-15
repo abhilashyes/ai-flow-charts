@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, TextField, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
+import { Modal, TextField, NumberField, SelectField, ReadOnlyField, CheckboxField, FormActions } from '../formControls'
 import { PROCESS_TYPES, TIME_UNITS, DEFAULT_TIME_UNIT } from '../../utils/constants'
 import { generateRefNum } from '../../utils/refnum'
 import { validateProcess, hasErrors } from '../../utils/validation'
@@ -16,6 +16,7 @@ export default function ProcessForm({ processes, onSubmit, onClose, initial }) {
     idealTimeUnit: initial?.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
+    abnormal: initial?.abnormal ?? false,
   }))
   const [errors, setErrors] = useState({})
 
@@ -78,6 +79,13 @@ export default function ProcessForm({ processes, onSubmit, onClose, initial }) {
           <NumberField label="Standard Resources" value={values.stdRes} onChange={set('stdRes')} error={errors.stdRes} />
           <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
         </div>
+
+        <CheckboxField
+          label="🚩 Abnormality"
+          hint="flag a problem here"
+          checked={values.abnormal}
+          onChange={set('abnormal')}
+        />
 
         <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Process' : 'Save Process'} />
       </form>

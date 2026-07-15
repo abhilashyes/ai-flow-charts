@@ -108,6 +108,21 @@ export function ReadOnlyField({ label, value }) {
   )
 }
 
+export function CheckboxField({ label, checked, onChange, hint }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 accent-red-500"
+      />
+      <span className="text-[13px] font-medium text-slate-700">{label}</span>
+      {hint && <span className="text-[11px] text-slate-400">{hint}</span>}
+    </label>
+  )
+}
+
 export function FormActions({ onCancel, submitLabel = 'Save' }) {
   return (
     <div className="mt-5 flex justify-end gap-2">

@@ -118,6 +118,7 @@ export function useFlowEditor(initialFlow) {
         idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
+        abnormal: Boolean(values.abnormal),
       }
       const processes = renumber([...version.processes, created], 'P')
       commit({ ...version, processes })
@@ -142,6 +143,7 @@ export function useFlowEditor(initialFlow) {
                 idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
                 stdRes: Number(values.stdRes),
                 idealRes: Number(values.idealRes),
+                abnormal: Boolean(values.abnormal),
               }
             : p,
         ),
@@ -182,6 +184,7 @@ export function useFlowEditor(initialFlow) {
         idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
+        abnormal: Boolean(values.abnormal),
         srcSide: 'auto', // exit side of the source shape: auto|top|bottom|left|right
         tgtSide: 'auto', // entry side of the target shape: auto|top|bottom|left|right
       }
@@ -220,6 +223,7 @@ export function useFlowEditor(initialFlow) {
                 idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
                 stdRes: Number(values.stdRes),
                 idealRes: Number(values.idealRes),
+                abnormal: Boolean(values.abnormal),
               }
             : c,
         ),

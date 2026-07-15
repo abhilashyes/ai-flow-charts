@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
+import { Modal, NumberField, SelectField, ReadOnlyField, CheckboxField, FormActions } from '../formControls'
 import { CONNECTOR_TYPES, DEFAULT_TIME_UNIT } from '../../utils/constants'
 import { CONVEYANCE } from '../../utils/conveyance'
 import { generateRefNum } from '../../utils/refnum'
@@ -23,6 +23,7 @@ export default function ConnectorForm({ connectors, processes, onSubmit, onClose
     idealTimeUnit: initial?.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
+    abnormal: initial?.abnormal ?? false,
   }))
   const [errors, setErrors] = useState({})
 
@@ -107,6 +108,13 @@ export default function ConnectorForm({ connectors, processes, onSubmit, onClose
             <NumberField label="Standard Resources" value={values.stdRes} onChange={set('stdRes')} error={errors.stdRes} />
             <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
           </div>
+
+          <CheckboxField
+            label="🚩 Abnormality"
+            hint="flag a problem here"
+            checked={values.abnormal}
+            onChange={set('abnormal')}
+          />
 
           <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Connector' : 'Save Connector'} />
         </form>

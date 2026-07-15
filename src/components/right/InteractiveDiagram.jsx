@@ -200,7 +200,7 @@ function buildElements(processes, connectors) {
     data: {
       id: String(p.id),
       shape: p.type === 'diamond' ? 'diamond' : p.type === 'customer' ? 'customer' : 'rectangle',
-      label: `${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
+      label: `${p.abnormal ? '🚩 ' : ''}${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
     },
   }))
 
@@ -215,7 +215,7 @@ function buildElements(processes, connectors) {
         etype: c.type,
         srcSide: c.srcSide || 'auto',
         tgtSide: c.tgtSide || 'auto',
-        label: `${conveyanceOf(c.modeOfConveyance).glyph}\n${formatTime(c.stdTime, c.stdTimeUnit)}`,
+        label: `${c.abnormal ? '🚩 ' : ''}${conveyanceOf(c.modeOfConveyance).glyph}\n${formatTime(c.stdTime, c.stdTimeUnit)}`,
       },
     }))
 

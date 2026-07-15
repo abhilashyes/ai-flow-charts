@@ -1,4 +1,4 @@
-import { Square, Diamond, UserRound, Pencil, Trash2, Clock, Users } from 'lucide-react'
+import { Square, Diamond, UserRound, Pencil, Trash2, Clock, Users, Flag } from 'lucide-react'
 import { formatTime } from '../../utils/time'
 
 export default function ProcessList({ processes, selected, onSelect, onEdit, onDelete }) {
@@ -33,6 +33,11 @@ export default function ProcessList({ processes, selected, onSelect, onEdit, onD
               <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">{p.refNum}</span>
               <Icon size={14} className={iconColor} />
               <span className="flex-1 truncate text-[13px] font-semibold text-slate-700">{p.name}</span>
+              {p.abnormal && (
+                <span title="Abnormality flagged" className="shrink-0">
+                  <Flag size={13} className="fill-red-500 text-red-500" />
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
