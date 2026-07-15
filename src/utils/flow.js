@@ -12,14 +12,22 @@ function defaultTimeline() {
   ]
 }
 
+// Default swim lanes (horizontal rows) for a diagram version.
+export function defaultLanes() {
+  return [
+    { id: crypto.randomUUID(), label: 'Lane 1' },
+    { id: crypto.randomUUID(), label: 'Lane 2' },
+  ]
+}
+
 // An empty diagram for a single version.
 export function makeVersionChain() {
-  return { processes: [], connectors: [], timeline: defaultTimeline() }
+  return { processes: [], connectors: [], timeline: defaultTimeline(), lanes: defaultLanes() }
 }
 
 const now = () => new Date().toISOString()
 
-// A brand-new flow: all three versions start empty.
+// A brand-new flow: all three versions start empty (each with default lanes).
 export function makeBlankFlow(name = 'Untitled Value Chain') {
   const ts = now()
   return {
@@ -37,13 +45,19 @@ export function makeBlankFlow(name = 'Untitled Value Chain') {
 }
 
 // A flow whose Current version is pre-populated with the demo diagram; Target
-// and Ideal start empty.
+// and Ideal start empty. Sample processes are spread across the two lanes.
 export function makeSampleFlow(name = 'Sample Value Chain') {
   const flow = makeBlankFlow(name)
+  const lanes = defaultLanes()
+  const processes = structuredClone(initialProcesses).map((p, i) => ({
+    ...p,
+    laneId: lanes[i % lanes.length].id,
+  }))
   flow.versions.current = {
-    processes: structuredClone(initialProcesses),
+    processes,
     connectors: structuredClone(initialConnectors),
     timeline: defaultTimeline(),
+    lanes,
   }
   return flow
 }
@@ -61,13 +75,14 @@ export function cloneFlow(flow, name) {
   }
 }
 
-// Strip the legacy `mode` tag and backfill time units on a migrated element.
+// Strip the legacy `mode` tag and backfill time units + laneId on an element.
 function normalizeElement(el) {
   const { mode, ...rest } = el
   return {
     ...rest,
     stdTimeUnit: rest.stdTimeUnit ?? DEFAULT_TIME_UNIT,
     idealTimeUnit: rest.idealTimeUnit ?? DEFAULT_TIME_UNIT,
+    laneId: rest.laneId ?? null,
   }
 }
 
@@ -76,22 +91,31 @@ function normalizeElement(el) {
 // Target empty. Ref numbers are renumbered contiguously within each version.
 export function migrateFlowV1(oldChain) {
   const pick = (arr, mode) => arr.filter((x) => (x.mode ?? 'standard') === mode).map(normalizeElement)
-  const current = {
-    processes: renumber(pick(oldChain.processes ?? [], 'standard'), 'P'),
-    connectors: renumber(pick(oldChain.connectors ?? [], 'standard'), 'C'),
+  const version = (mode) => ({
+    processes: renumber(pick(oldChain.processes ?? [], mode), 'P'),
+    connectors: renumber(pick(oldChain.connectors ?? [], mode), 'C'),
     timeline: oldChain.timeline ? structuredClone(oldChain.timeline) : defaultTimeline(),
-  }
-  const ideal = {
-    processes: renumber(pick(oldChain.processes ?? [], 'ideal'), 'P'),
-    connectors: renumber(pick(oldChain.connectors ?? [], 'ideal'), 'C'),
-    timeline: oldChain.timeline ? structuredClone(oldChain.timeline) : defaultTimeline(),
-  }
+    lanes: defaultLanes(),
+  })
   return {
     id: oldChain.id ?? crypto.randomUUID(),
     name: oldChain.name ?? 'Untitled Value Chain',
     owner: 'local',
-    versions: { current, target: makeVersionChain(), ideal },
+    versions: { current: version('standard'), target: makeVersionChain(), ideal: version('ideal') },
     createdAt: oldChain.createdAt ?? now(),
     updatedAt: oldChain.updatedAt ?? now(),
   }
+}
+
+// Ensure a loaded flow has the current shape: every version has a `lanes` array
+// and every process has a `laneId` key. Backfills flows saved before lanes.
+export function normalizeFlow(flow) {
+  if (!flow?.versions) return flow
+  for (const key of Object.keys(flow.versions)) {
+    const v = flow.versions[key]
+    if (!v) continue
+    if (!Array.isArray(v.lanes)) v.lanes = defaultLanes()
+    v.processes = (v.processes ?? []).map((p) => (p.laneId === undefined ? { ...p, laneId: null } : p))
+  }
+  return flow
 }

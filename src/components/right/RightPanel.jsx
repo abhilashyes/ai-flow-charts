@@ -18,6 +18,11 @@ export default function RightPanel({ vc }) {
           onColumnLabel={vc.setColumnLabel}
           onAddColumn={vc.addColumn}
           onRemoveColumn={vc.removeColumn}
+          lanes={vc.lanes}
+          onLaneLabel={vc.setLaneLabel}
+          onAddLane={vc.addLane}
+          onRemoveLane={vc.removeLane}
+          onAssignLane={vc.setProcessLane}
         />
       </div>
     </div>

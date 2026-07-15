@@ -1,4 +1,4 @@
-import { makeSampleFlow, migrateFlowV1 } from './flow'
+import { makeSampleFlow, migrateFlowV1, normalizeFlow } from './flow'
 
 // LocalStorage-backed persistence for many flows, keyed by flow id. Each stored
 // value is a full flow object (see utils/flow.js) with three versions. This is
@@ -35,9 +35,11 @@ function migrateLegacy() {
 }
 
 function readAll() {
-  const map = readRaw(KEY)
-  if (Object.keys(map).length > 0) return map
-  return migrateLegacy() // {} if there was nothing to migrate
+  let map = readRaw(KEY)
+  if (Object.keys(map).length === 0) map = migrateLegacy() // {} if nothing to migrate
+  // Backfill newer fields (e.g. lanes) onto flows saved before they existed.
+  for (const id of Object.keys(map)) map[id] = normalizeFlow(map[id])
+  return map
 }
 
 // Seed a single demo flow the very first time the app is opened, so the Home

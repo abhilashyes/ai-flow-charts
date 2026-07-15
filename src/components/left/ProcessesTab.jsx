@@ -35,6 +35,7 @@ export default function ProcessesTab({ vc }) {
       {showForm && (
         <ProcessForm
           processes={processes}
+          lanes={vc.lanes}
           onSubmit={vc.addProcess}
           onClose={() => setShowForm(false)}
         />
@@ -43,6 +44,7 @@ export default function ProcessesTab({ vc }) {
       {editing && (
         <ProcessForm
           processes={processes}
+          lanes={vc.lanes}
           initial={editing}
           onSubmit={(values) => vc.editProcess(editing.id, values)}
           onClose={() => setEditing(null)}

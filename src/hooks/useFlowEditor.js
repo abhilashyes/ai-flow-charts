@@ -90,6 +90,36 @@ export function useFlowEditor(initialFlow) {
     [patchVersion],
   )
 
+  // Swim lanes of the active version (lightweight, not undo history).
+  const setLaneLabel = useCallback(
+    (id, label) =>
+      patchVersion((v) => ({
+        ...v,
+        lanes: (v.lanes ?? []).map((l) => (l.id === id ? { ...l, label } : l)),
+      })),
+    [patchVersion],
+  )
+
+  const addLane = useCallback(
+    () =>
+      patchVersion((v) => {
+        const lanes = v.lanes ?? []
+        return { ...v, lanes: [...lanes, { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}` }] }
+      }),
+    [patchVersion],
+  )
+
+  const removeLane = useCallback(
+    (id) =>
+      patchVersion((v) => ({
+        ...v,
+        lanes: (v.lanes ?? []).filter((l) => l.id !== id),
+        // unassign any processes that were in the removed lane
+        processes: (v.processes ?? []).map((p) => (p.laneId === id ? { ...p, laneId: null } : p)),
+      })),
+    [patchVersion],
+  )
+
   // Snapshot the whole flow for undo, then set the active version's next chain.
   const commit = useCallback(
     (nextVersion) => {
@@ -119,6 +149,7 @@ export function useFlowEditor(initialFlow) {
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
         abnormal: Boolean(values.abnormal),
+        laneId: values.laneId || null,
       }
       const processes = renumber([...version.processes, created], 'P')
       commit({ ...version, processes })
@@ -144,6 +175,7 @@ export function useFlowEditor(initialFlow) {
                 stdRes: Number(values.stdRes),
                 idealRes: Number(values.idealRes),
                 abnormal: Boolean(values.abnormal),
+                laneId: values.laneId || null,
               }
             : p,
         ),
@@ -200,6 +232,19 @@ export function useFlowEditor(initialFlow) {
       commit({
         ...version,
         connectors: version.connectors.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      })
+    },
+    [version, commit],
+  )
+
+  // Assign a process to a swim lane (used by drag-to-lane). History-tracked.
+  const setProcessLane = useCallback(
+    (processId, laneId) => {
+      commit({
+        ...version,
+        processes: version.processes.map((p) =>
+          p.id === processId ? { ...p, laneId: laneId || null } : p,
+        ),
       })
     },
     [version, commit],
@@ -291,6 +336,7 @@ export function useFlowEditor(initialFlow) {
     processes: version.processes,
     connectors: version.connectors,
     timeline: version.timeline ?? [],
+    lanes: version.lanes ?? [],
     selected,
     setSelected,
     toasts,
@@ -307,6 +353,10 @@ export function useFlowEditor(initialFlow) {
     setColumnLabel,
     addColumn,
     removeColumn,
+    setLaneLabel,
+    addLane,
+    removeLane,
+    setProcessLane,
     undo,
     redo,
     canUndo: past.current.length > 0,

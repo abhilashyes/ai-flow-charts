@@ -4,7 +4,7 @@ import { PROCESS_TYPES, TIME_UNITS, DEFAULT_TIME_UNIT } from '../../utils/consta
 import { generateRefNum } from '../../utils/refnum'
 import { validateProcess, hasErrors } from '../../utils/validation'
 
-export default function ProcessForm({ processes, onSubmit, onClose, initial }) {
+export default function ProcessForm({ processes, lanes = [], onSubmit, onClose, initial }) {
   const isEdit = Boolean(initial)
   const refNum = isEdit ? initial.refNum : generateRefNum('P', processes)
   const [values, setValues] = useState(() => ({
@@ -17,6 +17,7 @@ export default function ProcessForm({ processes, onSubmit, onClose, initial }) {
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
     abnormal: initial?.abnormal ?? false,
+    laneId: initial?.laneId ?? '',
   }))
   const [errors, setErrors] = useState({})
 
@@ -57,6 +58,15 @@ export default function ProcessForm({ processes, onSubmit, onClose, initial }) {
           placeholder="e.g. Quality Check"
           autoFocus
         />
+
+        <SelectField label="Swim lane" value={values.laneId} onChange={set('laneId')}>
+          <option value="">Unassigned</option>
+          {lanes.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </SelectField>
 
         <TimeRow
           label="Standard Time"

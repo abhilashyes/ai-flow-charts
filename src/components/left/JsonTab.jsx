@@ -8,7 +8,7 @@ import { VERSION_LABEL } from '../../utils/constants'
 export default function JsonTab({ vc }) {
   const [copied, setCopied] = useState(false)
   const json = JSON.stringify(
-    { processes: vc.processes, connectors: vc.connectors, timeline: vc.timeline },
+    { processes: vc.processes, connectors: vc.connectors, timeline: vc.timeline, lanes: vc.lanes },
     null,
     2,
   )
