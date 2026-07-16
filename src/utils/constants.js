@@ -30,12 +30,9 @@ export function timeUnit(value) {
   return UNIT_BY_VALUE.get(value) ?? UNIT_BY_VALUE.get(DEFAULT_TIME_UNIT)
 }
 
-// Process node shapes.
-export const PROCESS_TYPES = [
-  { value: 'rectangle', label: 'Rectangle (task)' },
-  { value: 'diamond', label: 'Diamond (decision)' },
-  { value: 'customer', label: 'Rectangle (Customer)' },
-]
+// Process node shapes are defined in the shape registry (single source of
+// truth). Re-exported here so existing importers keep their import path.
+export { PROCESS_TYPES } from './shapes'
 
 // Connector kinds.
 export const CONNECTOR_TYPES = [

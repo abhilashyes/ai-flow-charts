@@ -4,6 +4,7 @@ import { Plus, X } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
 import { COLUMN_W, DEFAULT_LANE_H } from '../../utils/constants'
+import { cyShapeStyles, shapeOf } from '../../utils/shapes'
 
 // Model-space x of the centre of timeline column `i` (columns tile from x=0).
 const columnCenterX = (i) => (i + 0.5) * COLUMN_W
@@ -249,40 +250,8 @@ const cyStyle = [
       'text-outline-width': 1,
     },
   },
-  {
-    selector: 'node[shape = "rectangle"]',
-    style: {
-      shape: 'round-rectangle',
-      'background-color': '#dbeafe',
-      'border-color': '#3b82f6',
-      width: 136,
-      height: 68,
-      'text-max-width': '120px',
-    },
-  },
-  {
-    selector: 'node[shape = "diamond"]',
-    style: {
-      shape: 'diamond',
-      'background-color': '#ffedd5',
-      'border-color': '#f97316',
-      width: 108,
-      height: 108,
-      'text-max-width': '66px',
-    },
-  },
-  {
-    // Customer rectangle — same size as a task box, distinct green colour.
-    selector: 'node[shape = "customer"]',
-    style: {
-      shape: 'round-rectangle',
-      'background-color': '#dcfce7',
-      'border-color': '#16a34a',
-      width: 136,
-      height: 68,
-      'text-max-width': '120px',
-    },
-  },
+  // Per-shape style blocks generated from the shape registry (utils/shapes.js).
+  ...cyShapeStyles(),
   {
     selector: 'edge',
     style: {
@@ -345,7 +314,8 @@ function buildElements(processes, connectors) {
   const nodes = processes.map((p) => ({
     data: {
       id: String(p.id),
-      shape: p.type === 'diamond' ? 'diamond' : p.type === 'customer' ? 'customer' : 'rectangle',
+      // Registry value; shapeOf() falls back to 'rectangle' for unknown/legacy.
+      shape: shapeOf(p.type).value,
       label: `${p.abnormal ? '🚩 ' : ''}${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
     },
   }))
@@ -381,8 +351,8 @@ const SIDE_META = {
 function box(id, positions, shapes) {
   const p = positions?.get(id)
   if (!p) return null
-  const diamond = shapes.get(id) === 'diamond'
-  return { x: p.x, y: p.y, w: diamond ? 108 : 136, h: diamond ? 108 : 68 }
+  const s = shapeOf(shapes.get(id))
+  return { x: p.x, y: p.y, w: s.width, h: s.height }
 }
 
 // Resolve an "auto" side to whichever side of `self` faces `other`.

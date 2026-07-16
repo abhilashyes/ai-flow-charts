@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { Square, Diamond, UserRound, Pencil, Trash2, Clock, Users, Flag } from 'lucide-react'
+import { Pencil, Trash2, Clock, Users, Flag } from 'lucide-react'
 import { formatTime } from '../../utils/time'
+import { shapeOf } from '../../utils/shapes'
 
 export default function ProcessList({ processes, selected, onSelect, onEdit, onDelete }) {
   const selRef = useRef(null)
@@ -21,13 +22,7 @@ export default function ProcessList({ processes, selected, onSelect, onEdit, onD
     <div className="space-y-2">
       {processes.map((p) => {
         const isSel = selected?.kind === 'process' && selected.id === p.id
-        const Icon = p.type === 'diamond' ? Diamond : p.type === 'customer' ? UserRound : Square
-        const iconColor =
-          p.type === 'diamond'
-            ? 'text-orange-500'
-            : p.type === 'customer'
-              ? 'text-emerald-600'
-              : 'text-blue-500'
+        const { Icon, iconColor } = shapeOf(p.type)
         return (
           <div
             key={p.id}

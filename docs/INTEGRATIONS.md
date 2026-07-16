@@ -50,7 +50,9 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
 ```jsonc
 {
   "id": 1, "refNum": "P01", "name": "string",
-  "type": "rectangle" | "diamond" | "customer",
+  "type": "rectangle" | "diamond" | "customer"        // standard shapes
+        | "inventory" | "kaizen" | "data-box"         // VSM shapes (added v1.1)
+        | "shipment" | "operator" | "supermarket",
   "stdTime": 60,  "stdTimeUnit":  "s|min|hr|day|wk|mo",
   "idealTime": 30,"idealTimeUnit":"s|min|hr|day|wk|mo",
   "stdRes": 3, "idealRes": 2,
@@ -80,6 +82,9 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   defaults; legacy `v1` chains and legacy lane `rows`/`laneRow` are migrated).
   A consumer written against this schema can read any earlier flow.
 - New optional fields may be added in minor releases; ignore unknown keys.
+- `type` values are stable identifiers; new shapes are **added** (never renamed
+  or removed) in minor releases. Treat an unrecognized `type` as a plain
+  rectangle so older consumers keep rendering newer flows.
 
 ## 2. REST API (API mode)
 
