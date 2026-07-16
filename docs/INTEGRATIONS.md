@@ -42,7 +42,9 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   "processes":  [ <Process> ],
   "connectors": [ <Connector> ],
   "timeline":   [ { "id": "uuid", "label": "string" } ],   // columns, left→right
-  "lanes":      [ { "id": "uuid", "label": "string", "height": 160, "color": "#f1f5f9" } ]
+  "lanes":      [ { "id": "uuid", "label": "string", "height": 160, "color": "#f1f5f9" } ],
+  "notes":      [ { "id": "uuid", "text": "string", "x": 0, "y": 0 } ],  // free-floating
+  "groups":     [ { "id": "uuid", "label": "string", "x": 0, "y": 0, "w": 340, "h": 220 } ]
 }
 ```
 
@@ -84,8 +86,12 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
 - `refNum` is a display label and is renumbered on delete; use `id` for
   references. Connector `source`/`target` reference `Process.id`.
 - Older documents are upgraded on read (missing keys are backfilled with safe
-  defaults; legacy `v1` chains and legacy lane `rows`/`laneRow` are migrated).
-  A consumer written against this schema can read any earlier flow.
+  defaults; legacy `v1` chains and legacy lane `rows`/`laneRow` are migrated;
+  missing `notes`/`groups` default to `[]`). A consumer written against this
+  schema can read any earlier flow.
+- `notes` are free-floating annotations (model-space `x,y`); `groups` are dashed
+  boundary boxes (model-space `x,y,w,h`) whose membership is derived from which
+  processes fall inside — membership is not stored.
 - New optional fields may be added in minor releases; ignore unknown keys.
 - `abnormalityType` (`none|excess|shortage`) supersedes the boolean `abnormal`,
   which is retained and kept in sync. Legacy `abnormal:true` (no type) upgrades to

@@ -180,6 +180,61 @@ export function useFlowEditor(initialFlow) {
     [patchVersion],
   )
 
+  // Free-floating notes (lightweight, like lanes — no undo history). Dropped near
+  // the middle of the current content so a new note is on-screen.
+  const addNote = useCallback(
+    () =>
+      patchVersion((v) => {
+        const ps = v.processes ?? []
+        const cx = ps.length ? Math.round(ps.reduce((s, p) => s + (p.x ?? 0), 0) / ps.length) : COLUMN_W
+        const cy = ps.length ? Math.round(ps.reduce((s, p) => s + (p.y ?? 0), 0) / ps.length) - 120 : 80
+        return { ...v, notes: [...(v.notes ?? []), { id: crypto.randomUUID(), text: '', x: cx, y: cy }] }
+      }),
+    [patchVersion],
+  )
+  const setNoteText = useCallback(
+    (id, text) => patchVersion((v) => ({ ...v, notes: (v.notes ?? []).map((n) => (n.id === id ? { ...n, text } : n)) })),
+    [patchVersion],
+  )
+  const setNotePos = useCallback(
+    (id, x, y) => patchVersion((v) => ({ ...v, notes: (v.notes ?? []).map((n) => (n.id === id ? { ...n, x, y } : n)) })),
+    [patchVersion],
+  )
+  const removeNote = useCallback(
+    (id) => patchVersion((v) => ({ ...v, notes: (v.notes ?? []).filter((n) => n.id !== id) })),
+    [patchVersion],
+  )
+
+  // Dashed group boxes (visual boundary; membership is derived from geometry in
+  // the diagram). Lightweight, like lanes/notes.
+  const addGroup = useCallback(
+    () =>
+      patchVersion((v) => {
+        const ps = v.processes ?? []
+        const cx = ps.length ? Math.round(ps.reduce((s, p) => s + (p.x ?? 0), 0) / ps.length) : COLUMN_W
+        const cy = ps.length ? Math.round(ps.reduce((s, p) => s + (p.y ?? 0), 0) / ps.length) : 200
+        const w = 340
+        const h = 220
+        return {
+          ...v,
+          groups: [...(v.groups ?? []), { id: crypto.randomUUID(), label: 'Group', x: cx - w / 2, y: cy - h / 2, w, h }],
+        }
+      }),
+    [patchVersion],
+  )
+  const setGroupLabel = useCallback(
+    (id, label) => patchVersion((v) => ({ ...v, groups: (v.groups ?? []).map((g) => (g.id === id ? { ...g, label } : g)) })),
+    [patchVersion],
+  )
+  const setGroupRect = useCallback(
+    (id, rect) => patchVersion((v) => ({ ...v, groups: (v.groups ?? []).map((g) => (g.id === id ? { ...g, ...rect } : g)) })),
+    [patchVersion],
+  )
+  const removeGroup = useCallback(
+    (id) => patchVersion((v) => ({ ...v, groups: (v.groups ?? []).filter((g) => g.id !== id) })),
+    [patchVersion],
+  )
+
   // Snapshot the whole flow for undo, then set the active version's next chain.
   const commit = useCallback(
     (nextVersion) => {
@@ -402,6 +457,8 @@ export function useFlowEditor(initialFlow) {
     connectors: version.connectors,
     timeline: version.timeline ?? [],
     lanes: version.lanes ?? [],
+    notes: version.notes ?? [],
+    groups: version.groups ?? [],
     selected,
     setSelected,
     editRequest,
@@ -428,6 +485,14 @@ export function useFlowEditor(initialFlow) {
     setLaneHeight,
     setLaneColor,
     removeLane,
+    addNote,
+    setNoteText,
+    setNotePos,
+    removeNote,
+    addGroup,
+    setGroupLabel,
+    setGroupRect,
+    removeGroup,
     setProcessPos,
     undo,
     redo,

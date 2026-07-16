@@ -26,6 +26,16 @@ export default function RightPanel({ vc }) {
           onRemoveLane={vc.removeLane}
           onLaneResize={vc.setLaneHeight}
           onLaneColor={vc.setLaneColor}
+          notes={vc.notes}
+          groups={vc.groups}
+          onAddNote={vc.addNote}
+          onNoteText={vc.setNoteText}
+          onNoteMove={vc.setNotePos}
+          onNoteRemove={vc.removeNote}
+          onAddGroup={vc.addGroup}
+          onGroupLabel={vc.setGroupLabel}
+          onGroupRect={vc.setGroupRect}
+          onGroupRemove={vc.removeGroup}
           onMoveNode={vc.setProcessPos}
           onEditRequest={vc.requestEdit}
         />

@@ -288,7 +288,10 @@ function AbnormalityOverlay({ vp, size, processes, connectors }) {
     if (!s || !t) continue
     const mx = ((s.x ?? 0) + (t.x ?? 0)) / 2
     const my = ((s.y ?? 0) + (t.y ?? 0)) / 2
-    const { x, y } = toScreen(mx, my - ABN_EDGE_LIFT) // float just above the mid-label
+    // If the connector also shows a boxcar (conveyance SVG), stack the glyph
+    // above it; otherwise float just above the mid-label.
+    const lift = conveyanceOf(c.modeOfConveyance).dataUri ? ABN_EDGE_LIFT + 22 : ABN_EDGE_LIFT
+    const { x, y } = toScreen(mx, my - lift)
     items.push({ key: `c${c.id}`, a, cx: x, bottomY: y })
   }
   if (items.length === 0) return null
@@ -306,6 +309,169 @@ function AbnormalityOverlay({ vp, size, processes, connectors }) {
         />
       ))}
     </svg>
+  )
+}
+
+// Crisp SVG symbols for conveyance modes that carry one (e.g. the symmetrical
+// boxcar for Physical Transport), floated just above each connector's mid-label.
+const CONV_PX = 20 // symbol size at zoom 1
+const CONV_LIFT = 12 // model-space lift above the mid-point
+
+function ConveyanceOverlay({ vp, size, processes, connectors }) {
+  const posById = new Map(processes.map((p) => [p.id, p]))
+  const gpx = CONV_PX * vp.zoom
+  const items = []
+  for (const c of connectors) {
+    const uri = conveyanceOf(c.modeOfConveyance).dataUri
+    if (!uri) continue
+    const s = posById.get(c.source)
+    const t = posById.get(c.target)
+    if (!s || !t) continue
+    const cx = vp.x + (((s.x ?? 0) + (t.x ?? 0)) / 2) * vp.zoom
+    const bottomY = vp.y + (((s.y ?? 0) + (t.y ?? 0)) / 2 - CONV_LIFT) * vp.zoom
+    items.push({ key: `cv${c.id}`, uri, cx, bottomY })
+  }
+  if (items.length === 0) return null
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-[4]" width={size.w} height={size.h}>
+      {items.map((it) => (
+        <image key={it.key} href={it.uri} width={gpx} height={gpx} x={it.cx - gpx / 2} y={it.bottomY - gpx} />
+      ))}
+    </svg>
+  )
+}
+
+// Free-floating sticky notes, anchored to a model position (so they pan with the
+// diagram) at a fixed pixel size (so text stays readable at any zoom). Editable
+// panes can drag (via the header), edit the text, and delete; read-only panes
+// just show the text.
+const NOTE_W = 172
+
+function NotesOverlay({ vp, size, notes, onText, onMove, onRemove }) {
+  const editable = Boolean(onText)
+  const startDrag = (note, e) => {
+    if (!onMove) return
+    e.preventDefault()
+    e.stopPropagation()
+    const sx = e.clientX
+    const sy = e.clientY
+    const move = (ev) =>
+      onMove(note.id, Math.round(note.x + (ev.clientX - sx) / vp.zoom), Math.round(note.y + (ev.clientY - sy) / vp.zoom))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[5]">
+      {notes.map((n) => (
+        <div
+          key={n.id}
+          className="group/note pointer-events-auto absolute overflow-hidden rounded-md border border-amber-300 bg-amber-100 shadow-md"
+          style={{ left: vp.x + n.x * vp.zoom, top: vp.y + n.y * vp.zoom, width: NOTE_W }}
+        >
+          <div
+            onPointerDown={editable ? (e) => startDrag(n, e) : undefined}
+            className={`flex items-center justify-between bg-amber-200/70 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ${editable ? 'cursor-move' : ''}`}
+          >
+            <span>Note</span>
+            {editable && (
+              <button onClick={() => onRemove(n.id)} title="Delete note" className="rounded p-0.5 text-amber-700 hover:bg-amber-300 hover:text-red-600">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+          {editable ? (
+            <textarea
+              value={n.text}
+              onChange={(e) => onText(n.id, e.target.value)}
+              placeholder="Type a note…"
+              rows={3}
+              className="block w-full resize-none bg-amber-100 px-2 py-1.5 text-[12px] text-slate-700 outline-none placeholder:text-amber-600/60"
+            />
+          ) : (
+            <div className="whitespace-pre-wrap px-2 py-1.5 text-[12px] text-slate-700">{n.text}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Dashed group boxes. The box is a visual boundary (moves on its own — shapes
+// stay put); it is "aware" of its members by geometry: any process whose centre
+// falls inside the box. The count is shown on the label chip. Editable panes can
+// move (drag the label), resize (corner handle), rename, and delete.
+function groupMembers(group, processes) {
+  return processes.filter(
+    (p) => (p.x ?? 0) >= group.x && (p.x ?? 0) <= group.x + group.w && (p.y ?? 0) >= group.y && (p.y ?? 0) <= group.y + group.h,
+  )
+}
+
+function GroupOverlay({ vp, size, groups, processes, onLabel, onRect, onRemove }) {
+  const editable = Boolean(onLabel)
+  const drag = (start, apply) => (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const sx = e.clientX
+    const sy = e.clientY
+    const move = (ev) => apply((ev.clientX - sx) / vp.zoom, (ev.clientY - sy) / vp.zoom)
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[2]">
+      {groups.map((g) => {
+        const left = vp.x + g.x * vp.zoom
+        const top = vp.y + g.y * vp.zoom
+        const members = groupMembers(g, processes)
+        return (
+          <div
+            key={g.id}
+            className="absolute rounded-lg border-2 border-dashed border-slate-400"
+            style={{ left, top, width: g.w * vp.zoom, height: g.h * vp.zoom }}
+          >
+            <div
+              onPointerDown={editable ? drag(g, (dx, dy) => onRect(g.id, { x: Math.round(g.x + dx), y: Math.round(g.y + dy) })) : undefined}
+              className={`pointer-events-auto absolute -top-3 left-2 flex items-center gap-1 rounded bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-slate-200 ${editable ? 'cursor-move' : ''}`}
+              title={members.map((m) => m.refNum).join(', ') || 'No shapes inside'}
+            >
+              {editable ? (
+                <input
+                  value={g.label}
+                  onChange={(e) => onLabel(g.id, e.target.value)}
+                  placeholder="Group"
+                  className="w-24 bg-transparent text-[11px] font-semibold text-slate-600 outline-none"
+                />
+              ) : (
+                <span className="text-[11px] font-semibold text-slate-600">{g.label}</span>
+              )}
+              <span className="rounded-full bg-slate-700 px-1.5 text-[10px] font-bold text-white" title={`${members.length} shape(s) inside`}>
+                {members.length}
+              </span>
+              {editable && (
+                <button onClick={() => onRemove(g.id)} title="Delete group" className="rounded p-0.5 text-slate-300 hover:text-red-500">
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+            {editable && (
+              <button
+                onPointerDown={drag(g, (dx, dy) => onRect(g.id, { w: Math.max(80, Math.round(g.w + dx)), h: Math.max(60, Math.round(g.h + dy)) }))}
+                title="Drag to resize the group"
+                className="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border border-slate-400 bg-white shadow-sm"
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -401,18 +567,24 @@ function buildElements(processes, connectors) {
 
   const edges = connectors
     .filter((c) => ids.has(c.source) && ids.has(c.target))
-    .map((c) => ({
-      data: {
-        id: `e${c.id}`,
-        cid: c.id,
-        source: String(c.source),
-        target: String(c.target),
-        etype: c.type,
-        srcSide: c.srcSide || 'auto',
-        tgtSide: c.tgtSide || 'auto',
-        label: `${conveyanceOf(c.modeOfConveyance).glyph}\n${formatTime(c.stdTime, c.stdTimeUnit)}`,
-      },
-    }))
+    .map((c) => {
+      // Modes with a crisp SVG (e.g. Physical Transport) are drawn by
+      // ConveyanceOverlay, so the text label shows only the time (no emoji).
+      const glyph = conveyanceOf(c.modeOfConveyance).glyph
+      const time = formatTime(c.stdTime, c.stdTimeUnit)
+      return {
+        data: {
+          id: `e${c.id}`,
+          cid: c.id,
+          source: String(c.source),
+          target: String(c.target),
+          etype: c.type,
+          srcSide: c.srcSide || 'auto',
+          tgtSide: c.tgtSide || 'auto',
+          label: glyph ? `${glyph}\n${time}` : time,
+        },
+      }
+    })
 
   return { nodes, edges }
 }
@@ -630,6 +802,16 @@ export default function InteractiveDiagram({
   onRemoveLane,
   onLaneResize,
   onLaneColor,
+  notes = [],
+  groups = [],
+  onAddNote,
+  onNoteText,
+  onNoteMove,
+  onNoteRemove,
+  onAddGroup,
+  onGroupLabel,
+  onGroupRect,
+  onGroupRemove,
   onMoveNode,
   onEditRequest,
 }) {
@@ -806,6 +988,18 @@ export default function InteractiveDiagram({
 
       <div ref={containerRef} className="relative z-[1] h-full w-full" />
 
+      {groups?.length > 0 && (
+        <GroupOverlay
+          vp={vp}
+          size={size}
+          groups={groups}
+          processes={processes}
+          onLabel={onGroupLabel}
+          onRect={onGroupRect}
+          onRemove={onGroupRemove}
+        />
+      )}
+
       {lanes?.length > 0 && (
         <LaneOverlay
           vp={vp}
@@ -832,18 +1026,44 @@ export default function InteractiveDiagram({
         />
       )}
 
+      <ConveyanceOverlay vp={vp} size={size} processes={processes} connectors={connectors} />
+
       <AbnormalityOverlay vp={vp} size={size} processes={processes} connectors={connectors} />
 
-      {/* When there are no lanes, offer to add the first one (lanes are opt-in). */}
-      {onAddLane && lanes.length === 0 && (
-        <button
-          onClick={onAddLane}
-          title="Add a swim lane"
-          className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
-        >
-          <Plus size={14} /> Swim lane
-        </button>
+      {(notes?.length > 0 || onNoteText) && (
+        <NotesOverlay vp={vp} size={size} notes={notes} onText={onNoteText} onMove={onNoteMove} onRemove={onNoteRemove} />
       )}
+
+      {/* Bottom-left toolbar: opt-in lanes, notes, and group boxes. */}
+      <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5">
+        {onAddLane && lanes.length === 0 && (
+          <button
+            onClick={onAddLane}
+            title="Add a swim lane"
+            className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+          >
+            <Plus size={14} /> Swim lane
+          </button>
+        )}
+        {onAddNote && (
+          <button
+            onClick={onAddNote}
+            title="Add a note"
+            className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+          >
+            <Plus size={14} /> Note
+          </button>
+        )}
+        {onAddGroup && (
+          <button
+            onClick={onAddGroup}
+            title="Add a group box"
+            className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+          >
+            <Plus size={14} /> Group
+          </button>
+        )}
+      </div>
 
       {processes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

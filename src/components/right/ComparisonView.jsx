@@ -39,6 +39,8 @@ function Pane({ flow, version, onVersion }) {
           connectors={chain.connectors}
           timeline={chain.timeline}
           lanes={chain.lanes}
+          notes={chain.notes}
+          groups={chain.groups}
           selected={null}
           onSelect={() => {}}
         />

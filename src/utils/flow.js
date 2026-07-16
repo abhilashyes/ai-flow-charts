@@ -26,7 +26,7 @@ function defaultTimeline() {
 // An empty diagram for a single version. Swim lanes are opt-in (start with none;
 // the user adds them if needed). `rows` on a lane is its height in shape-slots.
 export function makeVersionChain() {
-  return { processes: [], connectors: [], timeline: defaultTimeline(), lanes: [] }
+  return { processes: [], connectors: [], timeline: defaultTimeline(), lanes: [], notes: [], groups: [] }
 }
 
 const now = () => new Date().toISOString()
@@ -131,6 +131,8 @@ export function normalizeFlow(flow) {
       (v.processes ?? []).map(({ laneRow, ...p }) => withAbnormality({ ...p, laneId: p.laneId ?? null })),
     )
     v.connectors = (v.connectors ?? []).map((c) => withAbnormality(c))
+    v.notes = Array.isArray(v.notes) ? v.notes : []
+    v.groups = Array.isArray(v.groups) ? v.groups : []
   }
   return flow
 }
