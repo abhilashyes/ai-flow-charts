@@ -5,6 +5,7 @@ import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
 import { COLUMN_W, DEFAULT_LANE_H } from '../../utils/constants'
 import { cyShapeStyles, shapeOf } from '../../utils/shapes'
+import { abnormalityOf, abnormalityType } from '../../utils/abnormality'
 
 // Model-space x of the centre of timeline column `i` (columns tile from x=0).
 const columnCenterX = (i) => (i + 0.5) * COLUMN_W
@@ -230,6 +231,54 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
   )
 }
 
+// Floating abnormality glyphs (Excess = dome, Shortage = bowl) drawn above each
+// flagged process node and connector mid-point. Synced to the viewport so they
+// pan/zoom/track with the shapes; never overlap them (a gap is kept). Read-only.
+const ABN_BASE_PX = 22 // glyph size at zoom 1
+const ABN_GAP = 14 // model-space gap between the glyph's bottom and the shape
+
+function AbnormalityOverlay({ vp, size, processes, connectors }) {
+  const posById = new Map(processes.map((p) => [p.id, p]))
+  const gpx = ABN_BASE_PX * vp.zoom
+  const toScreen = (mx, my) => ({ x: vp.x + mx * vp.zoom, y: vp.y + my * vp.zoom })
+
+  const items = []
+  for (const p of processes) {
+    const a = abnormalityOf(abnormalityType(p))
+    if (!a) continue
+    const h = shapeOf(p.type).height
+    const { x, y } = toScreen(p.x ?? 0, (p.y ?? 0) - h / 2 - ABN_GAP)
+    items.push({ key: `p${p.id}`, a, cx: x, bottomY: y })
+  }
+  for (const c of connectors) {
+    const a = abnormalityOf(abnormalityType(c))
+    if (!a) continue
+    const s = posById.get(c.source)
+    const t = posById.get(c.target)
+    if (!s || !t) continue
+    const mx = ((s.x ?? 0) + (t.x ?? 0)) / 2
+    const my = ((s.y ?? 0) + (t.y ?? 0)) / 2
+    const { x, y } = toScreen(mx, my - ABN_GAP - 12) // clear the edge's mid-label
+    items.push({ key: `c${c.id}`, a, cx: x, bottomY: y })
+  }
+  if (items.length === 0) return null
+
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-[4]" width={size.w} height={size.h}>
+      {items.map((it) => (
+        <image
+          key={it.key}
+          href={it.a.dataUri}
+          width={gpx}
+          height={gpx}
+          x={it.cx - gpx / 2}
+          y={it.bottomY - gpx}
+        />
+      ))}
+    </svg>
+  )
+}
+
 // Rectangles = tasks (blue), diamonds = decisions (orange). Every connector uses
 // `taxi` routing so it is always drawn with right angles (never diagonal), in a
 // left-to-right direction.
@@ -316,7 +365,7 @@ function buildElements(processes, connectors) {
       id: String(p.id),
       // Registry value; shapeOf() falls back to 'rectangle' for unknown/legacy.
       shape: shapeOf(p.type).value,
-      label: `${p.abnormal ? '🚩 ' : ''}${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
+      label: `${p.refNum}  ${p.name}\n${formatTime(p.stdTime, p.stdTimeUnit)} · ${p.stdRes} res`,
     },
   }))
 
@@ -331,7 +380,7 @@ function buildElements(processes, connectors) {
         etype: c.type,
         srcSide: c.srcSide || 'auto',
         tgtSide: c.tgtSide || 'auto',
-        label: `${c.abnormal ? '🚩 ' : ''}${conveyanceOf(c.modeOfConveyance).glyph}\n${formatTime(c.stdTime, c.stdTimeUnit)}`,
+        label: `${conveyanceOf(c.modeOfConveyance).glyph}\n${formatTime(c.stdTime, c.stdTimeUnit)}`,
       },
     }))
 
@@ -750,6 +799,8 @@ export default function InteractiveDiagram({
           onRemove={onRemoveColumn}
         />
       )}
+
+      <AbnormalityOverlay vp={vp} size={size} processes={processes} connectors={connectors} />
 
       {/* When there are no lanes, offer to add the first one (lanes are opt-in). */}
       {onAddLane && lanes.length === 0 && (

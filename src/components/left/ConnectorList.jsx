@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { Pencil, Trash2, ArrowRight, Clock, Flag } from 'lucide-react'
+import { Pencil, Trash2, ArrowRight, Clock } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
+import { abnormalityOf, abnormalityType } from '../../utils/abnormality'
 
 const SIDES = [
   ['auto', 'Auto'],
@@ -34,6 +35,7 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
         const isInfo = c.type === 'information-flow'
         const conv = conveyanceOf(c.modeOfConveyance)
         const ConvIcon = conv.Icon
+        const abn = abnormalityOf(abnormalityType(c))
         return (
           <div
             key={c.id}
@@ -54,9 +56,9 @@ export default function ConnectorList({ connectors, processMap, selected, onSele
               <span className="flex-1 truncate text-[12px] font-medium text-slate-600">
                 {src?.refNum ?? '?'} <ArrowRight size={11} className="inline" /> {tgt?.refNum ?? '?'}
               </span>
-              {c.abnormal && (
-                <span title="Abnormality flagged" className="shrink-0">
-                  <Flag size={13} className="fill-red-500 text-red-500" />
+              {abn && (
+                <span title={abn.label} className="shrink-0">
+                  <img src={abn.dataUri} width={16} height={16} alt={abn.label} />
                 </span>
               )}
               <button

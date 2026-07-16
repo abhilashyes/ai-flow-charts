@@ -188,7 +188,8 @@ export function useFlowEditor(initialFlow) {
         idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
-        abnormal: Boolean(values.abnormal),
+        abnormalityType: values.abnormalityType || 'none',
+        abnormal: (values.abnormalityType || 'none') !== 'none',
         laneId: values.laneId || null,
         // new shapes drop to the right of the current content (then freely moved)
         x: version.processes.length ? Math.max(...version.processes.map((p) => p.x ?? 0)) + 200 : COLUMN_W / 2,
@@ -217,7 +218,8 @@ export function useFlowEditor(initialFlow) {
                 idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
                 stdRes: Number(values.stdRes),
                 idealRes: Number(values.idealRes),
-                abnormal: Boolean(values.abnormal),
+                abnormalityType: values.abnormalityType || 'none',
+                abnormal: (values.abnormalityType || 'none') !== 'none',
                 laneId: values.laneId || null,
               }
             : p,
@@ -259,7 +261,8 @@ export function useFlowEditor(initialFlow) {
         idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
         stdRes: Number(values.stdRes),
         idealRes: Number(values.idealRes),
-        abnormal: Boolean(values.abnormal),
+        abnormalityType: values.abnormalityType || 'none',
+        abnormal: (values.abnormalityType || 'none') !== 'none',
         srcSide: 'auto', // exit side of the source shape: auto|top|bottom|left|right
         tgtSide: 'auto', // entry side of the target shape: auto|top|bottom|left|right
       }
@@ -309,7 +312,8 @@ export function useFlowEditor(initialFlow) {
                 idealTimeUnit: values.idealTimeUnit || DEFAULT_TIME_UNIT,
                 stdRes: Number(values.stdRes),
                 idealRes: Number(values.idealRes),
-                abnormal: Boolean(values.abnormal),
+                abnormalityType: values.abnormalityType || 'none',
+                abnormal: (values.abnormalityType || 'none') !== 'none',
               }
             : c,
         ),

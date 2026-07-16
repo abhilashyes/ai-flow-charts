@@ -58,7 +58,8 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   "stdTime": 60,  "stdTimeUnit":  "s|min|hr|day|wk|mo",
   "idealTime": 30,"idealTimeUnit":"s|min|hr|day|wk|mo",
   "stdRes": 3, "idealRes": 2,
-  "abnormal": false,
+  "abnormal": false,            // kept in sync with abnormalityType (= type!=="none")
+  "abnormalityType": "none" | "excess" | "shortage",  // Excess/Shortage Stagnation
   "laneId": "uuid|null",        // tag only (does not control position)
   "x": 84, "y": 220             // persisted model-space position
 }
@@ -72,6 +73,8 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   "modeOfConveyance": "Email|API|Manual Handoff|Physical Transport|Database Sync|Meeting|Conveyor|Other",
   "stdTime": 15, "stdTimeUnit": "min", "idealTime": 5, "idealTimeUnit": "min",
   "stdRes": 2, "idealRes": 1,
+  "abnormal": false,            // kept in sync with abnormalityType (= type!=="none")
+  "abnormalityType": "none" | "excess" | "shortage",  // Excess/Shortage Stagnation
   "srcSide": "auto|top|bottom|left|right",
   "tgtSide": "auto|top|bottom|left|right"
 }
@@ -84,6 +87,9 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   defaults; legacy `v1` chains and legacy lane `rows`/`laneRow` are migrated).
   A consumer written against this schema can read any earlier flow.
 - New optional fields may be added in minor releases; ignore unknown keys.
+- `abnormalityType` (`none|excess|shortage`) supersedes the boolean `abnormal`,
+  which is retained and kept in sync. Legacy `abnormal:true` (no type) upgrades to
+  `"excess"` on read. Treat an unknown type as `"none"`.
 - `type` values are stable identifiers; new shapes are **added** (never renamed
   or removed) in minor releases. Treat an unrecognized `type` as a plain
   rectangle so older consumers keep rendering newer flows.

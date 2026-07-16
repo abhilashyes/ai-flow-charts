@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Modal, TextField, NumberField, SelectField, ReadOnlyField, CheckboxField, FormActions } from '../formControls'
+import { Modal, TextField, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
 import { PROCESS_TYPES, TIME_UNITS, DEFAULT_TIME_UNIT } from '../../utils/constants'
+import { ABNORMALITY_TYPES, abnormalityType } from '../../utils/abnormality'
 import { generateRefNum } from '../../utils/refnum'
 import { validateProcess, hasErrors } from '../../utils/validation'
 
@@ -16,7 +17,7 @@ export default function ProcessForm({ processes, lanes = [], onSubmit, onClose, 
     idealTimeUnit: initial?.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
-    abnormal: initial?.abnormal ?? false,
+    abnormalityType: abnormalityType(initial),
     laneId: initial?.laneId ?? '',
   }))
   const [errors, setErrors] = useState({})
@@ -90,12 +91,13 @@ export default function ProcessForm({ processes, lanes = [], onSubmit, onClose, 
           <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
         </div>
 
-        <CheckboxField
-          label="🚩 Abnormality"
-          hint="flag a problem here"
-          checked={values.abnormal}
-          onChange={set('abnormal')}
-        />
+        <SelectField label="Abnormality" value={values.abnormalityType} onChange={set('abnormalityType')}>
+          {ABNORMALITY_TYPES.map((a) => (
+            <option key={a.value} value={a.value}>
+              {a.label}
+            </option>
+          ))}
+        </SelectField>
 
         <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Process' : 'Save Process'} />
       </form>

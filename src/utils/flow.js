@@ -74,15 +74,22 @@ export function cloneFlow(flow, name) {
   }
 }
 
+// Backfill the typed abnormality from the legacy boolean and keep both in sync
+// (legacy `abnormal:true` with no type → 'excess'; falsy → 'none').
+function withAbnormality(el) {
+  const type = el.abnormalityType ?? (el.abnormal ? 'excess' : 'none')
+  return { ...el, abnormalityType: type, abnormal: type !== 'none' }
+}
+
 // Strip the legacy `mode` tag and backfill time units + laneId on an element.
 function normalizeElement(el) {
   const { mode, ...rest } = el
-  return {
+  return withAbnormality({
     ...rest,
     stdTimeUnit: rest.stdTimeUnit ?? DEFAULT_TIME_UNIT,
     idealTimeUnit: rest.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     laneId: rest.laneId ?? null,
-  }
+  })
 }
 
 // Convert a legacy v1 chain (flat processes/connectors with per-element `mode`)
@@ -117,8 +124,9 @@ export function normalizeFlow(flow) {
       ? v.lanes.map(({ rows, ...l }) => ({ ...l, height: l.height ?? (rows ? rows * LEGACY_ROW_H : DEFAULT_LANE_H) }))
       : []
     v.processes = layoutRow(
-      (v.processes ?? []).map(({ laneRow, ...p }) => ({ ...p, laneId: p.laneId ?? null })),
+      (v.processes ?? []).map(({ laneRow, ...p }) => withAbnormality({ ...p, laneId: p.laneId ?? null })),
     )
+    v.connectors = (v.connectors ?? []).map((c) => withAbnormality(c))
   }
   return flow
 }

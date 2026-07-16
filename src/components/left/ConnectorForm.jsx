@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Modal, NumberField, SelectField, ReadOnlyField, CheckboxField, FormActions } from '../formControls'
+import { Modal, NumberField, SelectField, ReadOnlyField, FormActions } from '../formControls'
 import { CONNECTOR_TYPES, DEFAULT_TIME_UNIT } from '../../utils/constants'
+import { ABNORMALITY_TYPES, abnormalityType } from '../../utils/abnormality'
 import { CONVEYANCE } from '../../utils/conveyance'
 import { generateRefNum } from '../../utils/refnum'
 import { validateConnector, hasErrors } from '../../utils/validation'
@@ -23,7 +24,7 @@ export default function ConnectorForm({ connectors, processes, onSubmit, onClose
     idealTimeUnit: initial?.idealTimeUnit ?? DEFAULT_TIME_UNIT,
     stdRes: initial?.stdRes ?? '',
     idealRes: initial?.idealRes ?? '',
-    abnormal: initial?.abnormal ?? false,
+    abnormalityType: abnormalityType(initial),
   }))
   const [errors, setErrors] = useState({})
 
@@ -109,12 +110,13 @@ export default function ConnectorForm({ connectors, processes, onSubmit, onClose
             <NumberField label="Ideal Resources" value={values.idealRes} onChange={set('idealRes')} error={errors.idealRes} />
           </div>
 
-          <CheckboxField
-            label="🚩 Abnormality"
-            hint="flag a problem here"
-            checked={values.abnormal}
-            onChange={set('abnormal')}
-          />
+          <SelectField label="Abnormality" value={values.abnormalityType} onChange={set('abnormalityType')}>
+            {ABNORMALITY_TYPES.map((a) => (
+              <option key={a.value} value={a.value}>
+                {a.label}
+              </option>
+            ))}
+          </SelectField>
 
           <FormActions onCancel={onClose} submitLabel={isEdit ? 'Update Connector' : 'Save Connector'} />
         </form>

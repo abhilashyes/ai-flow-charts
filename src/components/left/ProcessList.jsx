@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { Pencil, Trash2, Clock, Users, Flag } from 'lucide-react'
+import { Pencil, Trash2, Clock, Users } from 'lucide-react'
 import { formatTime } from '../../utils/time'
 import { shapeOf } from '../../utils/shapes'
+import { abnormalityOf, abnormalityType } from '../../utils/abnormality'
 
 export default function ProcessList({ processes, selected, onSelect, onEdit, onDelete }) {
   const selRef = useRef(null)
@@ -23,6 +24,7 @@ export default function ProcessList({ processes, selected, onSelect, onEdit, onD
       {processes.map((p) => {
         const isSel = selected?.kind === 'process' && selected.id === p.id
         const { Icon, iconColor } = shapeOf(p.type)
+        const abn = abnormalityOf(abnormalityType(p))
         return (
           <div
             key={p.id}
@@ -36,9 +38,9 @@ export default function ProcessList({ processes, selected, onSelect, onEdit, onD
               <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">{p.refNum}</span>
               <Icon size={14} className={iconColor} />
               <span className="flex-1 truncate text-[13px] font-semibold text-slate-700">{p.name}</span>
-              {p.abnormal && (
-                <span title="Abnormality flagged" className="shrink-0">
-                  <Flag size={13} className="fill-red-500 text-red-500" />
+              {abn && (
+                <span title={abn.label} className="shrink-0">
+                  <img src={abn.dataUri} width={16} height={16} alt={abn.label} />
                 </span>
               )}
               <button
