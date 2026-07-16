@@ -1,6 +1,6 @@
 import { initialProcesses, initialConnectors } from './sampleData'
 import { renumber } from './refnum'
-import { DEFAULT_TIME_UNIT, COLUMN_W, DEFAULT_LANE_H } from './constants'
+import { DEFAULT_TIME_UNIT, COLUMN_W, DEFAULT_LANE_H, LANE_COLORS } from './constants'
 
 const ROW_Y = 220 // default y for a row-laid-out shape
 const LEGACY_ROW_H = 132 // old per-shape lane row height, for rows→height migration
@@ -121,7 +121,11 @@ export function normalizeFlow(flow) {
     const v = flow.versions[key]
     if (!v) continue
     v.lanes = Array.isArray(v.lanes)
-      ? v.lanes.map(({ rows, ...l }) => ({ ...l, height: l.height ?? (rows ? rows * LEGACY_ROW_H : DEFAULT_LANE_H) }))
+      ? v.lanes.map(({ rows, ...l }, i) => ({
+          ...l,
+          height: l.height ?? (rows ? rows * LEGACY_ROW_H : DEFAULT_LANE_H),
+          color: l.color ?? LANE_COLORS[i % LANE_COLORS.length],
+        }))
       : []
     v.processes = layoutRow(
       (v.processes ?? []).map(({ laneRow, ...p }) => withAbnormality({ ...p, laneId: p.laneId ?? null })),

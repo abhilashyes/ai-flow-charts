@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEFAULT_TIME_UNIT, VERSION_LABEL, COLUMN_W, DEFAULT_LANE_H } from '../utils/constants'
+import { DEFAULT_TIME_UNIT, VERSION_LABEL, COLUMN_W, DEFAULT_LANE_H, LANE_COLORS } from '../utils/constants'
+
+const laneColor = (i) => LANE_COLORS[i % LANE_COLORS.length]
 import { nextId, renumber } from '../utils/refnum'
 import { makeBlankFlow } from '../utils/flow'
 import { saveFlow } from '../utils/store'
@@ -126,7 +128,13 @@ export function useFlowEditor(initialFlow) {
     () =>
       patchVersion((v) => {
         const lanes = v.lanes ?? []
-        return { ...v, lanes: [...lanes, { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}`, height: DEFAULT_LANE_H }] }
+        return {
+          ...v,
+          lanes: [
+            ...lanes,
+            { id: crypto.randomUUID(), label: `Lane ${lanes.length + 1}`, height: DEFAULT_LANE_H, color: laneColor(lanes.length) },
+          ],
+        }
       }),
     [patchVersion],
   )
@@ -135,7 +143,19 @@ export function useFlowEditor(initialFlow) {
     () =>
       patchVersion((v) => ({
         ...v,
-        lanes: [{ id: crypto.randomUUID(), label: '', height: DEFAULT_LANE_H }, ...(v.lanes ?? [])],
+        lanes: [
+          { id: crypto.randomUUID(), label: '', height: DEFAULT_LANE_H, color: laneColor((v.lanes ?? []).length) },
+          ...(v.lanes ?? []),
+        ],
+      })),
+    [patchVersion],
+  )
+
+  const setLaneColor = useCallback(
+    (id, color) =>
+      patchVersion((v) => ({
+        ...v,
+        lanes: (v.lanes ?? []).map((l) => (l.id === id ? { ...l, color } : l)),
       })),
     [patchVersion],
   )
@@ -406,6 +426,7 @@ export function useFlowEditor(initialFlow) {
     addLane,
     addLaneStart,
     setLaneHeight,
+    setLaneColor,
     removeLane,
     setProcessPos,
     undo,

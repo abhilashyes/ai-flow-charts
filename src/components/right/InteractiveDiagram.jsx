@@ -3,7 +3,7 @@ import cytoscape from 'cytoscape'
 import { Plus, X } from 'lucide-react'
 import { conveyanceOf } from '../../utils/conveyance'
 import { formatTime } from '../../utils/time'
-import { COLUMN_W, DEFAULT_LANE_H } from '../../utils/constants'
+import { COLUMN_W, DEFAULT_LANE_H, LANE_COLORS } from '../../utils/constants'
 import { cyShapeStyles, shapeOf } from '../../utils/shapes'
 import { abnormalityOf, abnormalityType } from '../../utils/abnormality'
 
@@ -107,24 +107,23 @@ function TimelineOverlay({ vp, size, timeline, onLabel, onAdd, onAddLeft, onRemo
   )
 }
 
-// Faint alternating lane tints, drawn BEHIND the Cytoscape canvas so shapes keep
-// their true colour (the canvas is transparent between nodes).
+// Per-lane subtle colour bands, drawn BEHIND the Cytoscape canvas so shapes keep
+// their true colour (the canvas is transparent between nodes). Each lane's colour
+// is chosen by the user; missing colours fall back to the palette by index.
 function LaneBands({ vp, size, lanes }) {
   const { tops } = laneTops(lanes)
   return (
     <svg className="pointer-events-none absolute inset-0 z-0" width={size.w} height={size.h}>
-      {lanes.map((l, i) =>
-        i % 2 === 1 ? (
-          <rect
-            key={l.id}
-            x={0}
-            y={vp.y + tops[i] * vp.zoom}
-            width={size.w}
-            height={laneHeight(l) * vp.zoom}
-            fill="#f1f5f9"
-          />
-        ) : null,
-      )}
+      {lanes.map((l, i) => (
+        <rect
+          key={l.id}
+          x={0}
+          y={vp.y + tops[i] * vp.zoom}
+          width={size.w}
+          height={laneHeight(l) * vp.zoom}
+          fill={l.color ?? LANE_COLORS[i % LANE_COLORS.length]}
+        />
+      ))}
     </svg>
   )
 }
@@ -135,12 +134,13 @@ function LaneBands({ vp, size, lanes }) {
  * the diagram. Read-only (labels shown, no controls) when edit callbacks are
  * absent, e.g. comparison panes. Lane tints are drawn separately by LaneBands.
  */
-function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onResize }) {
+function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onResize, onLaneColor }) {
   const { tops, total } = laneTops(lanes)
   const y = (modelY) => vp.y + modelY * vp.zoom
   const rows = lanes.map((l, i) => ({ ...l, top: tops[i], h: laneHeight(l) }))
   const endY = y(total)
   const editable = Boolean(onLabel)
+  const [pickerFor, setPickerFor] = useState(null) // lane id whose colour picker is open
 
   // Drag a lane's bottom edge to resize freely (min height clamp in the hook).
   const startResize = (lane, e) => {
@@ -172,6 +172,14 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
         {rows.map((r) => (
           <div key={r.id} className="group absolute" style={{ top: y(r.top), left: 4, width: LANE_GUTTER, height: r.h * vp.zoom }}>
             <div className="flex items-center gap-0.5 pt-1">
+              {editable && onLaneColor && (
+                <button
+                  onClick={() => setPickerFor((cur) => (cur === r.id ? null : r.id))}
+                  title="Lane colour"
+                  className="pointer-events-auto h-5 w-5 shrink-0 rounded border border-slate-300 shadow-sm"
+                  style={{ backgroundColor: r.color ?? LANE_COLORS[0] }}
+                />
+              )}
               {editable ? (
                 <input
                   value={r.label}
@@ -194,6 +202,27 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
                 </button>
               )}
             </div>
+            {editable && onLaneColor && pickerFor === r.id && (
+              <div
+                className="pointer-events-auto absolute left-0 top-8 z-[7] flex flex-wrap gap-1 rounded-md border border-slate-200 bg-white p-1.5 shadow-lg"
+                style={{ width: 108 }}
+              >
+                {LANE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      onLaneColor(r.id, c)
+                      setPickerFor(null)
+                    }}
+                    title={c}
+                    className={`h-5 w-5 rounded border ${
+                      (r.color ?? LANE_COLORS[0]) === c ? 'border-slate-500 ring-1 ring-slate-400' : 'border-slate-200'
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            )}
             {/* Resize handle at the lane's bottom edge */}
             {editable && (
               <button
@@ -236,6 +265,7 @@ function LaneOverlay({ vp, size, lanes, onLabel, onAdd, onAddTop, onRemove, onRe
 // pan/zoom/track with the shapes; never overlap them (a gap is kept). Read-only.
 const ABN_BASE_PX = 22 // glyph size at zoom 1
 const ABN_GAP = 14 // model-space gap between the glyph's bottom and the shape
+const ABN_EDGE_LIFT = 13 // model-space lift of the glyph above a connector mid-point
 
 function AbnormalityOverlay({ vp, size, processes, connectors }) {
   const posById = new Map(processes.map((p) => [p.id, p]))
@@ -258,7 +288,7 @@ function AbnormalityOverlay({ vp, size, processes, connectors }) {
     if (!s || !t) continue
     const mx = ((s.x ?? 0) + (t.x ?? 0)) / 2
     const my = ((s.y ?? 0) + (t.y ?? 0)) / 2
-    const { x, y } = toScreen(mx, my - ABN_GAP - 12) // clear the edge's mid-label
+    const { x, y } = toScreen(mx, my - ABN_EDGE_LIFT) // float just above the mid-label
     items.push({ key: `c${c.id}`, a, cx: x, bottomY: y })
   }
   if (items.length === 0) return null
@@ -599,6 +629,7 @@ export default function InteractiveDiagram({
   onAddLaneTop,
   onRemoveLane,
   onLaneResize,
+  onLaneColor,
   onMoveNode,
   onEditRequest,
 }) {
@@ -785,6 +816,7 @@ export default function InteractiveDiagram({
           onAddTop={onAddLaneTop}
           onRemove={onRemoveLane}
           onResize={onLaneResize}
+          onLaneColor={onLaneColor}
         />
       )}
 

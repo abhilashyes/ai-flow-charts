@@ -21,9 +21,23 @@ export const DEFAULT_TIME_UNIT = 'min'
 
 // Width of one timeline column in flow (model) coordinates. Shared so initial
 // shape placement can align to columns. Shapes snap their X to a column centre.
-export const COLUMN_W = 168
+export const COLUMN_W = 196
 // Default swim-lane height in model coordinates (freely resizable).
 export const DEFAULT_LANE_H = 160
+
+// Subtle, light lane tints the user can pick from (kept pale so process shapes,
+// which carry their own fills, stay readable on top). New lanes auto-cycle these.
+export const LANE_COLORS = [
+  '#f1f5f9', // slate
+  '#eff6ff', // blue
+  '#ecfdf5', // emerald
+  '#fffbeb', // amber
+  '#fef2f2', // red
+  '#faf5ff', // purple
+  '#f0fdfa', // teal
+  '#fdf2f8', // pink
+]
+export const DEFAULT_LANE_COLOR = LANE_COLORS[0]
 
 const UNIT_BY_VALUE = new Map(TIME_UNITS.map((u) => [u.value, u]))
 export function timeUnit(value) {

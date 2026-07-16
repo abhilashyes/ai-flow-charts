@@ -25,6 +25,7 @@ export default function RightPanel({ vc }) {
           onAddLaneTop={vc.addLaneStart}
           onRemoveLane={vc.removeLane}
           onLaneResize={vc.setLaneHeight}
+          onLaneColor={vc.setLaneColor}
           onMoveNode={vc.setProcessPos}
           onEditRequest={vc.requestEdit}
         />

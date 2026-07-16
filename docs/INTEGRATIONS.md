@@ -42,7 +42,7 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   "processes":  [ <Process> ],
   "connectors": [ <Connector> ],
   "timeline":   [ { "id": "uuid", "label": "string" } ],   // columns, left→right
-  "lanes":      [ { "id": "uuid", "label": "string", "height": 160 } ]
+  "lanes":      [ { "id": "uuid", "label": "string", "height": 160, "color": "#f1f5f9" } ]
 }
 ```
 
