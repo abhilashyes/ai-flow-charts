@@ -52,7 +52,9 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
   "id": 1, "refNum": "P01", "name": "string",
   "type": "rectangle" | "diamond" | "customer"        // standard shapes
         | "inventory" | "kaizen" | "data-box"         // VSM shapes (added v1.1)
-        | "shipment" | "operator" | "supermarket",
+        | "shipment" | "operator" | "store"           // VSM shapes (added v1.1)
+        | "factory" | "end-user" | "computer"         // added v1.1
+        | "server" | "printer",
   "stdTime": 60,  "stdTimeUnit":  "s|min|hr|day|wk|mo",
   "idealTime": 30,"idealTimeUnit":"s|min|hr|day|wk|mo",
   "stdRes": 3, "idealRes": 2,
