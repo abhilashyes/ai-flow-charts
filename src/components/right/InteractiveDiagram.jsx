@@ -10,12 +10,17 @@ import { abnormalityOf, abnormalityType } from '../../utils/abnormality'
 // Model-space x of the centre of timeline column `i` (columns tile from x=0).
 const columnCenterX = (i) => (i + 0.5) * COLUMN_W
 
-// Snap a dragged x to the centre of the nearest column, clamped to the columns
-// that actually exist (0 .. count-1).
+// px; only pull to a column centre when a shape is released this close to one.
+const SNAP_X_THRESHOLD = 24
+
+// Magnetic X snap: pull to the nearest column centre only when released close to
+// it — otherwise the shape keeps its dropped x, so shapes can be placed freely
+// anywhere, including between columns or to the right of the last one.
 function snapX(x, count) {
   if (count <= 0) return x
   const i = Math.min(count - 1, Math.max(0, Math.round(x / COLUMN_W - 0.5)))
-  return columnCenterX(i)
+  const center = columnCenterX(i)
+  return Math.abs(center - x) <= SNAP_X_THRESHOLD ? center : x
 }
 
 const LANE_GUTTER = 92 // px width of the left label gutter (screen space)

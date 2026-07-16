@@ -63,6 +63,7 @@ export const CONVEYANCE_MODES = [
   'Database Sync',
   'Meeting',
   'Conveyor',
+  'Kanban',
   'Other',
 ]
 

@@ -72,7 +72,7 @@ A **flow** is the unit integrations read/write. Shape (stable keys):
 {
   "id": 1, "refNum": "C01", "source": 1, "target": 2,   // source/target = Process.id
   "type": "process-flow" | "information-flow",
-  "modeOfConveyance": "Email|API|Manual Handoff|Physical Transport|Database Sync|Meeting|Conveyor|Other",
+  "modeOfConveyance": "Email|API|Manual Handoff|Physical Transport|Database Sync|Meeting|Conveyor|Kanban|Other",
   "stdTime": 15, "stdTimeUnit": "min", "idealTime": 5, "idealTimeUnit": "min",
   "stdRes": 2, "idealRes": 1,
   "abnormal": false,            // kept in sync with abnormalityType (= type!=="none")

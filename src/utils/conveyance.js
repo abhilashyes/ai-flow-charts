@@ -1,4 +1,4 @@
-import { Mail, Webhook, Handshake, Truck, Database, Users, PackageCheck, HelpCircle } from 'lucide-react'
+import { Mail, Webhook, Handshake, Truck, Database, Users, PackageCheck, Kanban, HelpCircle } from 'lucide-react'
 import { svgDataUri } from './shapes'
 
 // A goods-carrying, LEFT/RIGHT-SYMMETRICAL boxcar for Physical Transport, so the
@@ -27,6 +27,7 @@ export const CONVEYANCE = [
   { value: 'Database Sync', label: 'Database Sync', glyph: '🗄️', Icon: Database },
   { value: 'Meeting', label: 'Meeting', glyph: '👥', Icon: Users },
   { value: 'Conveyor', label: 'Conveyor', glyph: '📦', Icon: PackageCheck },
+  { value: 'Kanban', label: 'Kanban', glyph: '📋', Icon: Kanban },
   { value: 'Other', label: 'Other', glyph: '•', Icon: HelpCircle },
 ]
 
